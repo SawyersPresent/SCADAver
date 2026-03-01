@@ -170,10 +170,14 @@ def _scan_rockwell() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.rockwell.driver import RockwellPLC
+    from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
     plc = RockwellPLC(ip)
     print("Connecting and discovering tags\u2026")
-    tags = plc.discover_tags()
+    try:
+        tags = plc.discover_tags()
+    except RockwellError as exc:
+        print(f"\n[!] Rockwell error: {exc}")
+        return
     preview = tags[:20]
     for t in preview:
         print(f"  {t}")
@@ -306,44 +310,49 @@ def _ctrl_rockwell() -> None:
         ("Back", None),
     ]
     idx = _prompt(actions, f"ROCKWELL {ip}")
-    from scadaver.vendors.rockwell.driver import RockwellPLC
+    if idx == 6:  # Back
+        return
+    from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
     plc = RockwellPLC(ip)
-    if idx == 0:
-        values = plc.read_all()
-        for t, v in list(values.items())[:40]:
-            print(f"  {t} = {v}")
-        if len(values) > 40:
-            print(f"  \u2026 and {len(values) - 40} more")
-    elif idx == 1:
-        tag = input("Tag name: ").strip()
-        if tag:
-            print(f"  {tag} = {plc.read_tag(tag)}")
-    elif idx == 2:
-        import json
-        raw = input("Enter TAG=value pairs (comma-separated): ").strip()
-        pairs: dict = {}
-        for item in raw.split(","):
-            item = item.strip()
-            if "=" not in item:
-                continue
-            t, v = item.split("=", 1)
-            try:
-                pairs[t.strip()] = json.loads(v.strip())
-            except Exception:
-                pairs[t.strip()] = v.strip()
-        results = plc.write_many(pairs)
-        for t, ok in results.items():
-            print(f"  {t}: {'OK' if ok else 'FAIL'}")
-    elif idx == 3:
-        from scadaver.vendors.rockwell.tui import run_monitor
-        interval_str = input("Poll interval seconds [1.0]: ").strip() or "1.0"
-        run_monitor(ip, interval=float(interval_str))
-    elif idx == 4:
-        from scadaver.vendors.rockwell.tui import run_editor
-        run_editor(ip)
-    elif idx == 5:
-        from scadaver.vendors.rockwell.tui import run_history
-        run_history(ip)
+    try:
+        if idx == 0:
+            values = plc.read_all()
+            for t, v in list(values.items())[:40]:
+                print(f"  {t} = {v}")
+            if len(values) > 40:
+                print(f"  \u2026 and {len(values) - 40} more")
+        elif idx == 1:
+            tag = input("Tag name: ").strip()
+            if tag:
+                print(f"  {tag} = {plc.read_tag(tag)}")
+        elif idx == 2:
+            import json
+            raw = input("Enter TAG=value pairs (comma-separated): ").strip()
+            pairs: dict = {}
+            for item in raw.split(","):
+                item = item.strip()
+                if "=" not in item:
+                    continue
+                t, v = item.split("=", 1)
+                try:
+                    pairs[t.strip()] = json.loads(v.strip())
+                except Exception:
+                    pairs[t.strip()] = v.strip()
+            results = plc.write_many(pairs)
+            for t, ok in results.items():
+                print(f"  {t}: {'OK' if ok else 'FAIL'}")
+        elif idx == 3:
+            from scadaver.vendors.rockwell.tui import run_monitor
+            interval_str = input("Poll interval seconds [1.0]: ").strip() or "1.0"
+            run_monitor(ip, interval=float(interval_str))
+        elif idx == 4:
+            from scadaver.vendors.rockwell.tui import run_editor
+            run_editor(ip)
+        elif idx == 5:
+            from scadaver.vendors.rockwell.tui import run_history
+            run_history(ip)
+    except RockwellError as exc:
+        print(f"\n[!] Rockwell error: {exc}")
 
 
 # ===================================================================

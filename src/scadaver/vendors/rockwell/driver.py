@@ -7,11 +7,39 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 
 DATA_DIR = Path("data")
+
+
+class RockwellError(Exception):
+    """Raised when communication with a Rockwell Logix PLC fails."""
+
+
+@contextmanager
+def _connect(ip: str, **kwargs):
+    """Open a LogixDriver connection, translating pycomm3 errors to RockwellError.
+
+    Args:
+        ip: PLC IP address.
+        **kwargs: Forwarded to LogixDriver.
+
+    Raises:
+        RockwellError: On any connection or protocol failure.
+    """
+    from pycomm3 import LogixDriver
+    from pycomm3.exceptions import CommError, ResponseError
+
+    try:
+        with LogixDriver(ip, **kwargs) as plc:
+            yield plc
+    except (ResponseError, CommError) as exc:
+        raise RockwellError(str(exc)) from exc
+    except Exception as exc:
+        raise RockwellError(f"Unexpected error communicating with {ip}: {exc}") from exc
 
 
 class RockwellPLC:
@@ -34,10 +62,11 @@ class RockwellPLC:
 
         Returns:
             Sorted list of tag names.
-        """
-        from pycomm3 import LogixDriver  # optional dep
 
-        with LogixDriver(self.ip, init_tags=True) as plc:
+        Raises:
+            RockwellError: If the PLC is unreachable or rejects the request.
+        """
+        with _connect(self.ip, init_tags=True) as plc:
             self.tags = sorted(list(plc.tags))
         self._tags_file.write_text(json.dumps(self.tags, indent=2))
         return self.tags
@@ -62,14 +91,18 @@ class RockwellPLC:
 
         Returns:
             Dict mapping tag name to value or "ERROR: <msg>".
-        """
-        from pycomm3 import LogixDriver
 
+        Raises:
+            RockwellError: If the PLC connection fails.
+        """
         if not self.tags:
             self.load_tags()
         results: dict[str, Any] = {}
-        with LogixDriver(self.ip) as plc:
+        with _connect(self.ip) as plc:
             responses = plc.read(*self.tags)
+            # pycomm3 returns a single Tag when only one tag is read
+            if not isinstance(responses, (list, tuple)):
+                responses = [responses]
             for tag, res in zip(self.tags, responses):
                 results[tag] = res.value if res.error is None else f"ERROR: {res.error}"
         return results
@@ -82,10 +115,11 @@ class RockwellPLC:
 
         Returns:
             Tag value, or "ERROR: <msg>" string on failure.
-        """
-        from pycomm3 import LogixDriver
 
-        with LogixDriver(self.ip) as plc:
+        Raises:
+            RockwellError: If the PLC connection fails.
+        """
+        with _connect(self.ip) as plc:
             res = plc.read(tag)
             return res.value if res.error is None else f"ERROR: {res.error}"
 
@@ -98,10 +132,11 @@ class RockwellPLC:
 
         Returns:
             True on success, False on failure.
-        """
-        from pycomm3 import LogixDriver
 
-        with LogixDriver(self.ip) as plc:
+        Raises:
+            RockwellError: If the PLC connection fails.
+        """
+        with _connect(self.ip) as plc:
             res = plc.write(tag, value)
             if isinstance(res, list):
                 res = res[0]
@@ -115,11 +150,12 @@ class RockwellPLC:
 
         Returns:
             Dict mapping tag name to success bool.
-        """
-        from pycomm3 import LogixDriver
 
+        Raises:
+            RockwellError: If the PLC connection fails.
+        """
         results: dict[str, bool] = {}
-        with LogixDriver(self.ip) as plc:
+        with _connect(self.ip) as plc:
             for tag, value in values.items():
                 if str(value).startswith("ERROR"):
                     results[tag] = False
@@ -201,12 +237,10 @@ class RockwellPLC:
         Yields:
             Tuple of (current_values dict, changes list).
         """
-        from pycomm3 import LogixDriver
-
         if not self.tags:
             self.load_tags()
         first = True
-        with LogixDriver(self.ip) as plc:
+        with _connect(self.ip) as plc:
             while True:
                 responses = plc.read(*self.tags)
                 current: dict[str, Any] = {}

@@ -10,7 +10,7 @@ from rich.live import Live
 from rich.prompt import Prompt
 from rich.table import Table
 
-from scadaver.vendors.rockwell.driver import RockwellPLC
+from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
 
 console = Console()
 
@@ -84,7 +84,11 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
     """
     plc = RockwellPLC(plc_ip)
     console.print(f"[cyan]Connecting to {plc_ip}…[/cyan]")
-    plc.load_tags()
+    try:
+        plc.load_tags()
+    except RockwellError as exc:
+        console.print(f"[red][!] {exc}[/red]")
+        return
     console.print(f"[green]Loaded {len(plc.tags)} tags. Starting monitor (Ctrl-C to stop).[/green]\n")
 
     layout = Layout()
@@ -93,6 +97,8 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
             for current, changes in plc.monitor(interval=interval):
                 layout.update(_tag_table(current, changes))
                 live.refresh()
+    except RockwellError as exc:
+        console.print(f"\n[red][!] Connection lost: {exc}[/red]")
     except KeyboardInterrupt:
         console.print("\n[yellow]Monitor stopped.[/yellow]")
 
@@ -108,12 +114,20 @@ def run_editor(plc_ip: str) -> None:
         plc_ip: PLC IP address.
     """
     plc = RockwellPLC(plc_ip)
-    console.print(f"[cyan]Connecting to {plc_ip}…[/cyan]")
-    plc.load_tags()
+    console.print(f"[cyan]Connecting to {plc_ip}\u2026[/cyan]")
+    try:
+        plc.load_tags()
+    except RockwellError as exc:
+        console.print(f"[red][!] {exc}[/red]")
+        return
     pending: dict[str, Any] = {}
 
     while True:
-        current = plc.read_all()
+        try:
+            current = plc.read_all()
+        except RockwellError as exc:
+            console.print(f"[red][!] Read failed: {exc}[/red]")
+            return
         # Show current values merged with pending edits
         merged = {**current, **pending}
         console.print(_tag_table(merged))
@@ -134,7 +148,11 @@ def run_editor(plc_ip: str) -> None:
             if not pending:
                 console.print("[yellow]Nothing pending.[/yellow]")
                 continue
-            results = plc.write_many(pending)
+            try:
+                results = plc.write_many(pending)
+            except RockwellError as exc:
+                console.print(f"[red][!] Write failed: {exc}[/red]")
+                continue
             for tag, ok in results.items():
                 status = "[green]OK[/green]" if ok else "[red]FAIL[/red]"
                 console.print(f"  {tag}: {status}")

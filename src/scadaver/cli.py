@@ -441,9 +441,12 @@ def rockwell() -> None:
 @click.option("--refresh", is_flag=True, default=False, help="Re-discover tags from PLC")
 def rockwell_tags(target: str, refresh: bool) -> None:
     """List all tags on a Logix PLC."""
-    from scadaver.vendors.rockwell.driver import RockwellPLC
+    from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
     plc = RockwellPLC(target)
-    tags = plc.discover_tags() if refresh else plc.load_tags()
+    try:
+        tags = plc.discover_tags() if refresh else plc.load_tags()
+    except RockwellError as exc:
+        raise click.ClickException(str(exc)) from exc
     for tag in tags:
         click.echo(tag)
     click.echo(f"\n{len(tags)} tag(s) total.")
@@ -454,15 +457,18 @@ def rockwell_tags(target: str, refresh: bool) -> None:
 @click.argument("tag", required=False)
 def rockwell_read(target: str, tag: str | None) -> None:
     """Read one TAG or all tags if TAG is omitted."""
-    from scadaver.vendors.rockwell.driver import RockwellPLC
+    from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
     plc = RockwellPLC(target)
-    if tag:
-        value = plc.read_tag(tag)
-        click.echo(f"{tag} = {value}")
-    else:
-        values = plc.read_all()
-        for t, v in values.items():
-            click.echo(f"{t} = {v}")
+    try:
+        if tag:
+            value = plc.read_tag(tag)
+            click.echo(f"{tag} = {value}")
+        else:
+            values = plc.read_all()
+            for t, v in values.items():
+                click.echo(f"{t} = {v}")
+    except RockwellError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @rockwell.command("write")
@@ -471,7 +477,7 @@ def rockwell_read(target: str, tag: str | None) -> None:
 def rockwell_write(target: str, assignments: tuple[str, ...]) -> None:
     """Write tag values.  Pass one or more TAG=value pairs."""
     import json
-    from scadaver.vendors.rockwell.driver import RockwellPLC
+    from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
     plc = RockwellPLC(target)
     values: dict = {}
     for pair in assignments:
@@ -482,7 +488,10 @@ def rockwell_write(target: str, assignments: tuple[str, ...]) -> None:
             values[t] = json.loads(raw)
         except Exception:
             values[t] = raw
-    results = plc.write_many(values)
+    try:
+        results = plc.write_many(values)
+    except RockwellError as exc:
+        raise click.ClickException(str(exc)) from exc
     for t, ok in results.items():
         status = "OK" if ok else "FAIL"
         click.echo(f"{t}: {status}")
