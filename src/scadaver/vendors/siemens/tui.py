@@ -164,9 +164,14 @@ def run_io_monitor(ip: str, port: int = 102, interval: float = 1.0) -> None:
     first = True
 
     try:
-        with Live(console=console, refresh_per_second=4, screen=True):
+        with Live(
+            console=console,
+            refresh_per_second=2,
+            vertical_overflow="visible",
+            auto_refresh=False,
+        ) as live:
             while True:
-                with console.status("[dim]…[/dim]"):
+                with console.status(f"[cyan]Polling {ip}…"):
                     current = plc.read_io()
                 changes = [] if first else plc.detect_changes(current)
                 if changes:
@@ -174,7 +179,8 @@ def run_io_monitor(ip: str, port: int = 102, interval: float = 1.0) -> None:
                 changed_set = {(c["area"], c["bit"]) for c in changes}
                 plc._previous = {k: dict(v) for k, v in current.items() if v is not None}
                 first = False
-                console.print(_io_table(current, changed_set))
+                live.update(_io_table(current, changed_set))
+                live.refresh()
                 time.sleep(interval)
     except KeyboardInterrupt:
         console.print("\n[yellow]Monitor stopped.[/yellow]")

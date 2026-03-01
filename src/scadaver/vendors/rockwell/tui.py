@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from rich.console import Console
-from rich.layout import Layout
 from rich.live import Live
 from rich.prompt import Prompt
 from rich.table import Table
@@ -101,11 +100,15 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
         f"Starting monitor (Ctrl-C to stop).[/green]\n"
     )
 
-    layout = Layout()
     try:
-        with Live(layout, refresh_per_second=4, screen=True) as live:
+        with Live(
+            console=console,
+            refresh_per_second=2,
+            vertical_overflow="visible",
+            auto_refresh=False,
+        ) as live:
             for current, changes in plc.monitor(interval=interval):
-                layout.update(_tag_table(current, changes))
+                live.update(_tag_table(current, changes))
                 live.refresh()
     except RockwellError as exc:
         console.print(f"\n[red][!] Connection lost: {exc}[/red]")

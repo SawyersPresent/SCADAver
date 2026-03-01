@@ -234,9 +234,15 @@ def run_monitor(ip: str, interval: float = 1.0) -> None:
     )
 
     try:
-        with Live(console=console, refresh_per_second=4, screen=True) as live:
+        with Live(
+            console=console,
+            refresh_per_second=2,
+            vertical_overflow="visible",
+            auto_refresh=False,
+        ) as live:
             for current, changes in plc.monitor(interval=interval):
                 live.update(_tag_table(current, changes))
+                live.refresh()
     except RuntimeError as exc:
         console.print(f"\n[red][!] Read error: {exc}[/red]")
     except KeyboardInterrupt:
