@@ -427,5 +427,92 @@ def exploit_beckhoff_route_spoof(target: str, cidr: str | None) -> None:
         click.echo("No valid route found.")
 
 
+# ===================================================================
+# rockwell group
+# ===================================================================
+
+@main.group()
+def rockwell() -> None:
+    """Interact with Rockwell Allen-Bradley Logix PLCs via EtherNet/IP."""
+
+
+@rockwell.command("tags")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("--refresh", is_flag=True, default=False, help="Re-discover tags from PLC")
+def rockwell_tags(target: str, refresh: bool) -> None:
+    """List all tags on a Logix PLC."""
+    from scadaver.vendors.rockwell.driver import RockwellPLC
+    plc = RockwellPLC(target)
+    tags = plc.discover_tags() if refresh else plc.load_tags()
+    for tag in tags:
+        click.echo(tag)
+    click.echo(f"\n{len(tags)} tag(s) total.")
+
+
+@rockwell.command("read")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.argument("tag", required=False)
+def rockwell_read(target: str, tag: str | None) -> None:
+    """Read one TAG or all tags if TAG is omitted."""
+    from scadaver.vendors.rockwell.driver import RockwellPLC
+    plc = RockwellPLC(target)
+    if tag:
+        value = plc.read_tag(tag)
+        click.echo(f"{tag} = {value}")
+    else:
+        values = plc.read_all()
+        for t, v in values.items():
+            click.echo(f"{t} = {v}")
+
+
+@rockwell.command("write")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.argument("assignments", nargs=-1, required=True)
+def rockwell_write(target: str, assignments: tuple[str, ...]) -> None:
+    """Write tag values.  Pass one or more TAG=value pairs."""
+    import json
+    from scadaver.vendors.rockwell.driver import RockwellPLC
+    plc = RockwellPLC(target)
+    values: dict = {}
+    for pair in assignments:
+        if "=" not in pair:
+            raise click.BadParameter(f"Expected TAG=value, got: {pair}")
+        t, raw = pair.split("=", 1)
+        try:
+            values[t] = json.loads(raw)
+        except Exception:
+            values[t] = raw
+    results = plc.write_many(values)
+    for t, ok in results.items():
+        status = "OK" if ok else "FAIL"
+        click.echo(f"{t}: {status}")
+
+
+@rockwell.command("monitor")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-i", "--interval", default=1.0, type=float, help="Poll interval in seconds")
+def rockwell_monitor(target: str, interval: float) -> None:
+    """Live TUI monitor showing all tags with change highlighting."""
+    from scadaver.vendors.rockwell.tui import run_monitor
+    run_monitor(target, interval=interval)
+
+
+@rockwell.command("edit")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+def rockwell_edit(target: str) -> None:
+    """Interactive TUI tag editor — select by number, stage writes, commit."""
+    from scadaver.vendors.rockwell.tui import run_editor
+    run_editor(target)
+
+
+@rockwell.command("history")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-n", "--limit", default=30, type=int, help="Number of entries to show")
+def rockwell_history(target: str, limit: int) -> None:
+    """Show recent tag change history for a PLC."""
+    from scadaver.vendors.rockwell.tui import run_history
+    run_history(target, limit=limit)
+
+
 if __name__ == "__main__":
     main()

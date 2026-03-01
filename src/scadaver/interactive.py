@@ -75,6 +75,7 @@ def _menu_scan() -> None:
         ("Mitsubishi MELSEC scan", _scan_mitsubishi),
         ("Beckhoff TwinCAT scan", _scan_beckhoff),
         ("Siemens (single IP)", _scan_siemens_ip),
+        ("Rockwell Allen-Bradley Logix", _scan_rockwell),
         ("Back", None),
     ]
     while True:
@@ -165,6 +166,22 @@ def _scan_siemens_ip() -> None:
         print(f"    CPU: {d['cpu_state']}")
 
 
+def _scan_rockwell() -> None:
+    ip = _ask_ip()
+    if not ip:
+        return
+    from scadaver.vendors.rockwell.driver import RockwellPLC
+    plc = RockwellPLC(ip)
+    print("Connecting and discovering tags\u2026")
+    tags = plc.discover_tags()
+    preview = tags[:20]
+    for t in preview:
+        print(f"  {t}")
+    if len(tags) > 20:
+        print(f"  \u2026 and {len(tags) - 20} more (saved to {plc._tags_file})")
+    print(f"\nTotal: {len(tags)} tag(s).")
+
+
 # ===================================================================
 # Control sub-menu
 # ===================================================================
@@ -176,6 +193,7 @@ def _menu_control() -> None:
         ("Siemens S7 I/O read/write", _ctrl_siemens_io),
         ("Siemens S7 CPU state", _ctrl_siemens_cpu),
         ("Beckhoff TwinCAT state", _ctrl_beckhoff),
+        ("Rockwell Allen-Bradley Logix", _ctrl_rockwell),
         ("Back", None),
     ]
     while True:
@@ -272,6 +290,60 @@ def _ctrl_beckhoff() -> None:
         set_twincat_state(ip, action)
     else:
         return
+
+
+def _ctrl_rockwell() -> None:
+    ip = _ask_ip()
+    if not ip:
+        return
+    actions = [
+        ("Read all tags", None),
+        ("Read single tag", None),
+        ("Write tag(s)", None),
+        ("Live monitor (TUI)", None),
+        ("Interactive editor (TUI)", None),
+        ("View change history", None),
+        ("Back", None),
+    ]
+    idx = _prompt(actions, f"ROCKWELL {ip}")
+    from scadaver.vendors.rockwell.driver import RockwellPLC
+    plc = RockwellPLC(ip)
+    if idx == 0:
+        values = plc.read_all()
+        for t, v in list(values.items())[:40]:
+            print(f"  {t} = {v}")
+        if len(values) > 40:
+            print(f"  \u2026 and {len(values) - 40} more")
+    elif idx == 1:
+        tag = input("Tag name: ").strip()
+        if tag:
+            print(f"  {tag} = {plc.read_tag(tag)}")
+    elif idx == 2:
+        import json
+        raw = input("Enter TAG=value pairs (comma-separated): ").strip()
+        pairs: dict = {}
+        for item in raw.split(","):
+            item = item.strip()
+            if "=" not in item:
+                continue
+            t, v = item.split("=", 1)
+            try:
+                pairs[t.strip()] = json.loads(v.strip())
+            except Exception:
+                pairs[t.strip()] = v.strip()
+        results = plc.write_many(pairs)
+        for t, ok in results.items():
+            print(f"  {t}: {'OK' if ok else 'FAIL'}")
+    elif idx == 3:
+        from scadaver.vendors.rockwell.tui import run_monitor
+        interval_str = input("Poll interval seconds [1.0]: ").strip() or "1.0"
+        run_monitor(ip, interval=float(interval_str))
+    elif idx == 4:
+        from scadaver.vendors.rockwell.tui import run_editor
+        run_editor(ip)
+    elif idx == 5:
+        from scadaver.vendors.rockwell.tui import run_history
+        run_history(ip)
 
 
 # ===================================================================
