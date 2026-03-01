@@ -397,8 +397,8 @@ def exploit_beckhoff_reboot(target: str) -> None:
 
 @exploit.command("beckhoff-user")
 @click.option("-t", "--target", required=True, help="Target Beckhoff IP")
-@click.option("-u", "--username", default="ICSToolAdmin", help="Username to create")
-@click.option("-p", "--password", default="ICSToolPwd1!", help="Password for new user")
+@click.option("-u", "--username", default="scadaver_admin", help="Username to create")
+@click.option("-p", "--password", default="Sc4d4v3r!", help="Password for new user")
 def exploit_beckhoff_user(target: str, username: str, password: str) -> None:
     """Add an admin user to a Beckhoff CX9020 via UPnP/SOAP."""
     from scadaver.vendors.beckhoff.webcontrol import add_user

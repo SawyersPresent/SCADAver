@@ -130,3 +130,48 @@ def scan(
             print(device)
 
     return devices
+
+
+def scan_ip(
+    ip: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Send a List Identity request to a specific IP address.
+
+    Args:
+        ip: Target IP address.
+        timeout: Seconds to wait for response.
+
+    Returns:
+        List with one device dict, or empty list.
+    """
+    import socket as _socket
+
+    sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(bytes.fromhex(DISCOVERY_PACKET), (ip, DEST_PORT))
+        data, _ = sock.recvfrom(1024)
+    except (_socket.timeout, OSError):
+        print(f"No EtherNet/IP response from {ip}")
+        return []
+    finally:
+        sock.close()
+
+    device = parse_list_identity(data)
+    if not device:
+        return []
+
+    dev_type = DEVICE_TYPE.get(str(device["DeviceType"]), f"Unknown ({device['DeviceType']})")
+    vendor_int = convert_to_int(bytes.fromhex(device["VendorID"]), inverted=False)
+    vendor_name = VENDOR_ID.get(str(vendor_int), f"Unknown ({device['VendorID']})")
+    header = f"{'Device Name':25} | {'IP Address':16} | {'Device Type':30} | {'Vendor':20}"
+    print(header)
+    print("-" * len(header))
+    print(
+        f"{device['ProductName']:25} | "
+        f"{device['SocketAddr']['sin_addr']:16} | "
+        f"{dev_type:30} | "
+        f"{vendor_name:20}"
+    )
+    return [device]

@@ -1,7 +1,7 @@
 FROM python:3.13-slim
 
-LABEL maintainer="ICS Red Team"
-LABEL description="ICSTool — Unified ICS Red Team Multi-Tool"
+LABEL maintainer="sawyerspresent"
+LABEL description="SCADAver — Unified ICS Red Team Multi-Tool"
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpcap0.8 \
@@ -13,5 +13,5 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir ".[spoof]"
 
-ENTRYPOINT ["icstool"]
+ENTRYPOINT ["scadaver"]
 CMD ["--help"]

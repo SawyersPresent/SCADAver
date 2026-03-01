@@ -85,43 +85,70 @@ def _menu_scan() -> None:
         _pause()
 
 
+def _ask_scan_mode() -> str | None:
+    """Ask whether to broadcast or target a specific IP.
+
+    Returns:
+        IP string if specific IP chosen, None for broadcast.
+    """
+    choice = input("Scan mode — (B)roadcast or specific (I)P? [B]: ").strip().lower() or "b"
+    if choice.startswith("i"):
+        return _ask_ip("Target IP")
+    return None
+
+
 def _scan_enip() -> None:
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.enip.scan import scan
-    iface = select_interface(get_interfaces())
-    devices = scan(interface=iface)
+    from scadaver.vendors.enip.scan import scan, scan_ip
+    target = _ask_scan_mode()
+    if target:
+        devices = scan_ip(target)
+    else:
+        from scadaver.core.network import get_interfaces, select_interface
+        devices = scan(interface=select_interface(get_interfaces()))
     print(f"\nFound {len(devices)} EtherNet/IP device(s).")
 
 
 def _scan_ewon() -> None:
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.ewon.scan import scan
-    iface = select_interface(get_interfaces())
-    devices = scan(interface=iface)
+    from scadaver.vendors.ewon.scan import scan, scan_ip
+    target = _ask_scan_mode()
+    if target:
+        devices = scan_ip(target)
+    else:
+        from scadaver.core.network import get_interfaces, select_interface
+        devices = scan(interface=select_interface(get_interfaces()))
     print(f"\nFound {len(devices)} eWON device(s).")
 
 
 def _scan_schneider() -> None:
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.schneider.scan import scan
-    iface = select_interface(get_interfaces())
-    devices = scan(interface=iface)
+    from scadaver.vendors.schneider.scan import scan, scan_ip
+    target = _ask_scan_mode()
+    if target:
+        devices = scan_ip(target)
+    else:
+        from scadaver.core.network import get_interfaces, select_interface
+        devices = scan(interface=select_interface(get_interfaces()))
     print(f"\nFound {len(devices)} Schneider device(s).")
 
 
 def _scan_mitsubishi() -> None:
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.mitsubishi.scan import scan
-    iface = select_interface(get_interfaces())
-    devices = scan(interface=iface)
+    from scadaver.vendors.mitsubishi.scan import scan, scan_ip
+    target = _ask_scan_mode()
+    if target:
+        devices = scan_ip(target)
+    else:
+        from scadaver.core.network import get_interfaces, select_interface
+        devices = scan(interface=select_interface(get_interfaces()))
     print(f"\nFound {len(devices)} Mitsubishi device(s).")
 
 
 def _scan_beckhoff() -> None:
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.beckhoff.scan import discover
-    iface = select_interface(get_interfaces())
-    devices = discover(interface=iface)
+    from scadaver.vendors.beckhoff.scan import discover, discover_ip
+    target = _ask_scan_mode()
+    if target:
+        devices = discover_ip(target)
+    else:
+        from scadaver.core.network import get_interfaces, select_interface
+        devices = discover(interface=select_interface(get_interfaces()))
     print(f"\nFound {len(devices)} Beckhoff device(s).")
 
 
@@ -129,7 +156,7 @@ def _scan_siemens_ip() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.siemens.scan import scan_ip
+    from scadaver.vendors.siemens.scan import scan_ip
     d = scan_ip(ip)
     print(f"\n  {d.get('ip_address', '?')} — {d.get('type_of_station', '?')}")
     if d.get("hardware"):
@@ -164,7 +191,7 @@ def _ctrl_mitsubishi() -> None:
     if not ip:
         return
     state = input("State (RUN/STOP/PAUSE) [RUN]: ").strip().upper() or "RUN"
-    from icstool.vendors.mitsubishi.control import set_state
+    from scadaver.vendors.mitsubishi.control import set_state
     result = set_state(ip, state)
     print(f"Result: {result}")
 
@@ -175,7 +202,7 @@ def _ctrl_phoenix() -> None:
         return
     model = input("Model (ilc150/ilc390) [ilc150]: ").strip().lower() or "ilc150"
     action = input("Action (cold/warm/hot/stop/info) [info]: ").strip().lower() or "info"
-    from icstool.vendors.phoenix.control import (
+    from scadaver.vendors.phoenix.control import (
         control_ilc150,
         control_ilc390,
         get_device_info,
@@ -195,7 +222,7 @@ def _ctrl_siemens_io() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.siemens.control import read_io, write_merkers, write_outputs
+    from scadaver.vendors.siemens.control import read_io, write_merkers, write_outputs
     action = input("Read (r) or Write outputs (o) or Write merkers (m)? [r]: ").strip().lower() or "r"
     if action == "o":
         bits = input("Binary outputs [00000000]: ").strip() or "00000000"
@@ -221,7 +248,7 @@ def _ctrl_siemens_cpu() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.siemens.control import cpu_state, flip_cpu
+    from scadaver.vendors.siemens.control import cpu_state, flip_cpu
     print(f"CPU state: {cpu_state(ip)}")
     flip = input("Toggle CPU state? [y/N]: ").strip().lower()
     if flip == "y":
@@ -234,7 +261,7 @@ def _ctrl_beckhoff() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.beckhoff.scan import get_state, reboot_device, set_twincat_state, shutdown_device
+    from scadaver.vendors.beckhoff.scan import get_state, reboot_device, set_twincat_state, shutdown_device
     print(f"Current state: {get_state(ip)}")
     action = input("Action (run/config/stop/reset/reboot/shutdown/none) [none]: ").strip().lower() or "none"
     if action == "reboot":
@@ -275,7 +302,7 @@ def _expl_ewon() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.ewon.exploit import exploit
+    from scadaver.vendors.ewon.exploit import exploit
     exploit(ip)
 
 
@@ -283,7 +310,7 @@ def _expl_schneider_flash() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.schneider.flash_led import flash_led
+    from scadaver.vendors.schneider.flash_led import flash_led
     flash_led(ip)
     print("Flash LED command sent.")
 
@@ -292,7 +319,7 @@ def _expl_schneider_hijack() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.schneider.session_hijack import (
+    from scadaver.vendors.schneider.session_hijack import (
         control_plc,
         get_device_info,
         get_session_cookie,
@@ -315,7 +342,7 @@ def _expl_phoenix_pass() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.phoenix.webvisit import retrieve_passwords
+    from scadaver.vendors.phoenix.webvisit import retrieve_passwords
     passwords = retrieve_passwords(ip)
     if passwords:
         for user, pwd in passwords:
@@ -328,7 +355,7 @@ def _expl_phoenix_tags() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.phoenix.webvisit import get_tags, read_tag_values, write_tag_value
+    from scadaver.vendors.phoenix.webvisit import get_tags, read_tag_values, write_tag_value
     tags = get_tags(ip)
     if not tags:
         print("No tags found.")
@@ -350,7 +377,7 @@ def _expl_beckhoff_reboot() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.vendors.beckhoff.webcontrol import reboot
+    from scadaver.vendors.beckhoff.webcontrol import reboot
     reboot(ip)
 
 
@@ -358,9 +385,9 @@ def _expl_beckhoff_user() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    user = input("Username [ICSToolAdmin]: ").strip() or "ICSToolAdmin"
-    pwd = input("Password [ICSToolPwd1!]: ").strip() or "ICSToolPwd1!"
-    from icstool.vendors.beckhoff.webcontrol import add_user
+    user = input("Username [scadaver_admin]: ").strip() or "scadaver_admin"
+    pwd = input("Password [Sc4d4v3r!]: ").strip() or "Sc4d4v3r!"
+    from scadaver.vendors.beckhoff.webcontrol import add_user
     add_user(ip, username=user, password=pwd)
 
 
@@ -368,8 +395,8 @@ def _expl_beckhoff_route() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.beckhoff.route_spoof import brute_force_routes
+    from scadaver.core.network import get_interfaces, select_interface
+    from scadaver.vendors.beckhoff.route_spoof import brute_force_routes
     ifaces = get_interfaces()
     iface = select_interface(ifaces)
     cidr = input(f"CIDR to scan [{iface.ip[:iface.ip.rfind('.')]}.0/24]: ").strip()

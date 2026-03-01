@@ -121,3 +121,40 @@ def scan(
         print("No Mitsubishi devices found.")
 
     return devices
+
+
+def scan_ip(
+    ip: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Send a Mitsubishi GX Works discovery packet to a specific IP.
+
+    Args:
+        ip: Target IP address.
+        timeout: Seconds to wait for response.
+
+    Returns:
+        List with one device dict, or empty list.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(
+            bytes.fromhex(DISCOVERY_PACKET.replace(" ", "")),
+            (ip, DISCOVERY_PORT),
+        )
+        data, addr = sock.recvfrom(1024)
+    except (socket.timeout, OSError):
+        print(f"No Mitsubishi response from {ip}")
+        return []
+    finally:
+        sock.close()
+
+    device = _parse_device(data, addr[0])
+    extra = ""
+    if device["title"]:
+        extra += f"CPU Title: {device['title']}"
+    if device["comment"]:
+        extra += f", Comment: {device['comment']}"
+    print(f"  Found {device['type']} at {device['ip']}" + (f" ({extra})" if extra else ""))
+    return [device]

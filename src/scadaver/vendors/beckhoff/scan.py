@@ -147,6 +147,108 @@ def discover(
     return devices
 
 
+def _parse_discovery_frame(data: bytes, addr: tuple) -> dict | None:
+    """Parse a single Beckhoff UDP discovery response frame."""
+    hexdata = data.hex().encode()
+    try:
+        netid = hexdata[24:36]
+        name_len = int(hexdata[54:56] + hexdata[52:54], 16)
+        name = data[28 : 27 + name_len].decode(errors="ignore")
+    except Exception:
+        return None
+    if not name:
+        return None
+
+    i = (27 + name_len) * 2 + 18
+    try:
+        kernel = "{}.{}.{}".format(
+            int(reverse_bytes(hexdata[i : i + 8]), 16),
+            int(reverse_bytes(hexdata[i + 8 : i + 16]), 16),
+            int(reverse_bytes(hexdata[i + 16 : i + 24]), 16),
+        )
+    except Exception:
+        kernel = "Unknown"
+    i += 24 + 528
+    try:
+        tc_ver = "{}.{}.{}".format(
+            int(hexdata[i : i + 2], 16),
+            int(hexdata[i + 2 : i + 4], 16),
+            int(reverse_bytes(hexdata[i + 4 : i + 8]), 16),
+        )
+    except Exception:
+        tc_ver = "Unknown"
+    try:
+        thumbprint = (
+            data.split(b"\x12\x00\x41\x00")[1]
+            .split(b"\x00")[0]
+            .decode(errors="ignore")
+            .upper()
+        )
+    except Exception:
+        thumbprint = None
+
+    return {
+        "ip": addr[0],
+        "name": name,
+        "netid": netid.decode(),
+        "netid_str": get_netid_as_string(netid.decode()),
+        "tc_version": tc_ver,
+        "kernel": kernel,
+        "ssl_thumbprint": thumbprint,
+    }
+
+
+def discover_ip(
+    ip: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Send a Beckhoff discovery packet to a specific IP address.
+
+    Args:
+        ip: Target IP address.
+        timeout: Seconds to wait for response.
+
+    Returns:
+        List with one device dict, or empty list.
+    """
+    _probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        _probe.connect((ip, 80))
+        local_ip = _probe.getsockname()[0]
+    except OSError:
+        local_ip = "0.0.0.0"
+    finally:
+        _probe.close()
+
+    local_netid = build_local_netid(local_ip)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    sock.bind((local_ip, 0))
+    discovery_pkt = (
+        "03661471 0000000001000000"
+        + local_netid
+        + "1027 00000000"
+    )
+    _send_udp(sock, ip, DISCOVERY_PORT, discovery_pkt)
+    try:
+        data, addr = _recv_udp(sock)
+    except (socket.timeout, OSError):
+        print(f"No Beckhoff response from {ip}")
+        sock.close()
+        return []
+    sock.close()
+
+    device = _parse_discovery_frame(data, addr)
+    if not device:
+        return []
+    print(
+        f"  {device['ip']}: {device['name']} "
+        f"(NetID: {device['netid_str']}, "
+        f"TC: {device['tc_version']}, OS: {device['kernel']})"
+    )
+    return [device]
+
+
 def get_state(
     device: dict,
     local_netid: str,

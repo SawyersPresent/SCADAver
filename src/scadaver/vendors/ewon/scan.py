@@ -153,3 +153,50 @@ def scan(
             print(f"    Firmware: {parsed['firmware']}")
 
     return devices
+
+
+def scan_ip(
+    ip: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Send eWON discovery packets to a specific IP address.
+
+    Args:
+        ip: Target IP address.
+        timeout: Seconds to wait for response.
+
+    Returns:
+        List of parsed device dicts, or empty list.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    sock.bind(("", RESPONSE_PORT))
+    try:
+        for pkt in DISCOVERY_PACKETS:
+            sock.sendto(bytes.fromhex(pkt), (ip, DISCOVERY_PORT))
+        responses: list[bytes] = []
+        while True:
+            try:
+                data, _ = sock.recvfrom(1024)
+                responses.append(data)
+            except (socket.timeout, OSError):
+                break
+    finally:
+        sock.close()
+
+    devices: list[dict] = []
+    for data in responses:
+        parsed = parse_response(data)
+        if not parsed:
+            continue
+        devices.append(parsed)
+        if parsed["type"] == "device_info":
+            print(
+                f"  - {parsed['identifier']}, {parsed['ip']}, "
+                f"{parsed['mac']}, {parsed['serial']}"
+            )
+        elif parsed["type"] == "firmware_info":
+            print(f"    Firmware: {parsed['firmware']}")
+    if not devices:
+        print(f"No eWON response from {ip}")
+    return devices

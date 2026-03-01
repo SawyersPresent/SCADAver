@@ -113,3 +113,66 @@ def scan(
         print(f"Found {len(devices)} device(s).")
 
     return devices
+
+
+def scan_ip(
+    ip: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Send a Schneider discovery packet to a specific IP address.
+
+    Args:
+        ip: Target IP address.
+        timeout: Seconds to wait for response.
+
+    Returns:
+        List with one device dict, or empty list.
+    """
+    # Derive the local IP used to reach the target
+    _probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        _probe.connect((ip, 80))
+        local_ip = _probe.getsockname()[0]
+    except OSError:
+        local_ip = "0.0.0.0"
+    finally:
+        _probe.close()
+
+    packet = _build_discovery_packet(local_ip, "255.255.0.0")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.settimeout(timeout)
+    try:
+        sock.bind((local_ip, SOURCE_PORT))
+    except OSError:
+        sock.bind(("", 0))
+    try:
+        sock.sendto(bytes.fromhex(packet), (ip, DEST_PORT))
+        data, addr = sock.recvfrom(1024)
+    except (socket.timeout, OSError):
+        print(f"No Schneider response from {ip}")
+        sock.close()
+        return []
+    sock.close()
+
+    hexdata = data.hex()
+    device: dict = {"ip": addr[0]}
+    if len(hexdata) > 100:
+        firmware = ".".join((
+            str(int(hexdata[102:104], 16)),
+            str(int(hexdata[100:102], 16)),
+            str(int(hexdata[98:100], 16)),
+            str(int(hexdata[96:98], 16)),
+        ))
+        raw_name = bytes.fromhex(hexdata[104:])
+        name = (
+            raw_name.replace(b"\x00\x00", b" ")
+            .replace(b"\x00", b"")
+            .decode(errors="replace")
+        )
+        device["firmware"] = firmware
+        device["name"] = name
+        print(f"  {addr[0]}: {name} (firmware {firmware})")
+    else:
+        print(f"  {addr[0]}: (short response)")
+    return [device]
