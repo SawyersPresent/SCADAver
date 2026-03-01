@@ -99,71 +99,101 @@ def _ask_scan_mode() -> str | None:
 
 
 def _scan_enip() -> None:
+    from rich.console import Console as _Con
     from scadaver.vendors.enip.scan import scan, scan_ip
+    _con = _Con()
     target = _ask_scan_mode()
     if target:
-        devices = scan_ip(target)
+        with _con.status(f"[cyan]Querying {target}\u2026"):
+            devices = scan_ip(target)
     else:
         from scadaver.core.network import get_interfaces, select_interface
-        devices = scan(interface=select_interface(get_interfaces()))
-    print(f"\nFound {len(devices)} EtherNet/IP device(s).")
+        iface = select_interface(get_interfaces())
+        with _con.status("[cyan]Broadcasting EtherNet/IP discovery\u2026"):
+            devices = scan(interface=iface)
+    _con.print(f"[green]Found {len(devices)} EtherNet/IP device(s).[/green]")
 
 
 def _scan_ewon() -> None:
+    from rich.console import Console as _Con
     from scadaver.vendors.ewon.scan import scan, scan_ip
+    _con = _Con()
     target = _ask_scan_mode()
     if target:
-        devices = scan_ip(target)
+        with _con.status(f"[cyan]Querying {target}\u2026"):
+            devices = scan_ip(target)
     else:
         from scadaver.core.network import get_interfaces, select_interface
-        devices = scan(interface=select_interface(get_interfaces()))
-    print(f"\nFound {len(devices)} eWON device(s).")
+        iface = select_interface(get_interfaces())
+        with _con.status("[cyan]Broadcasting eWON discovery\u2026"):
+            devices = scan(interface=iface)
+    _con.print(f"[green]Found {len(devices)} eWON device(s).[/green]")
 
 
 def _scan_schneider() -> None:
+    from rich.console import Console as _Con
     from scadaver.vendors.schneider.scan import scan, scan_ip
+    _con = _Con()
     target = _ask_scan_mode()
     if target:
-        devices = scan_ip(target)
+        with _con.status(f"[cyan]Querying {target}\u2026"):
+            devices = scan_ip(target)
     else:
         from scadaver.core.network import get_interfaces, select_interface
-        devices = scan(interface=select_interface(get_interfaces()))
-    print(f"\nFound {len(devices)} Schneider device(s).")
+        iface = select_interface(get_interfaces())
+        with _con.status("[cyan]Broadcasting Schneider discovery\u2026"):
+            devices = scan(interface=iface)
+    _con.print(f"[green]Found {len(devices)} Schneider device(s).[/green]")
 
 
 def _scan_mitsubishi() -> None:
+    from rich.console import Console as _Con
     from scadaver.vendors.mitsubishi.scan import scan, scan_ip
+    _con = _Con()
     target = _ask_scan_mode()
     if target:
-        devices = scan_ip(target)
+        with _con.status(f"[cyan]Querying {target}\u2026"):
+            devices = scan_ip(target)
     else:
         from scadaver.core.network import get_interfaces, select_interface
-        devices = scan(interface=select_interface(get_interfaces()))
-    print(f"\nFound {len(devices)} Mitsubishi device(s).")
+        iface = select_interface(get_interfaces())
+        with _con.status("[cyan]Broadcasting Mitsubishi MELSEC discovery\u2026"):
+            devices = scan(interface=iface)
+    from scadaver.vendors.mitsubishi.tui import run_scan_table
+    run_scan_table(devices)
 
 
 def _scan_beckhoff() -> None:
+    from rich.console import Console as _Con
     from scadaver.vendors.beckhoff.scan import discover, discover_ip
+    _con = _Con()
     target = _ask_scan_mode()
     if target:
-        devices = discover_ip(target)
+        with _con.status(f"[cyan]Querying {target}\u2026"):
+            devices = discover_ip(target)
     else:
         from scadaver.core.network import get_interfaces, select_interface
-        devices = discover(interface=select_interface(get_interfaces()))
-    print(f"\nFound {len(devices)} Beckhoff device(s).")
+        iface = select_interface(get_interfaces())
+        with _con.status("[cyan]Broadcasting Beckhoff ADS discovery\u2026"):
+            devices = discover(interface=iface)
+    from scadaver.vendors.beckhoff.tui import run_scan_table
+    run_scan_table(devices)
 
 
 def _scan_siemens_ip() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
     from scadaver.vendors.siemens.scan import scan_ip
-    d = scan_ip(ip)
-    print(f"\n  {d.get('ip_address', '?')} — {d.get('type_of_station', '?')}")
+    _con = _Con()
+    with _con.status(f"[cyan]Scanning {ip}\u2026"):
+        d = scan_ip(ip)
+    _con.print(f"\n  [green]{d.get('ip_address', '?')}[/green] \u2014 {d.get('type_of_station', '?')}")
     if d.get("hardware"):
-        print(f"    HW: {d['hardware']}, FW: {d.get('firmware', '?')}")
+        _con.print(f"    HW: {d['hardware']}, FW: {d.get('firmware', '?')}")
     if d.get("cpu_state"):
-        print(f"    CPU: {d['cpu_state']}")
+        _con.print(f"    CPU: [cyan]{d['cpu_state']}[/cyan]")
 
 
 def _scan_rockwell() -> None:
@@ -213,91 +243,115 @@ def _menu_control() -> None:
 
 
 def _ctrl_mitsubishi() -> None:
-    ip = _ask_ip()
-    if not ip:
-        return
-    state = input("State (RUN/STOP/PAUSE) [RUN]: ").strip().upper() or "RUN"
-    from scadaver.vendors.mitsubishi.control import set_state
-    result = set_state(ip, state)
-    print(f"Result: {result}")
+    from scadaver.vendors.mitsubishi.tui import run_control
+    run_control()
 
 
 def _ctrl_phoenix() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
+    _con = _Con()
+    mode = input(
+        "Action: [(i)nfo / cold / warm / hot / stop] or [(t) tag monitor / (e) tag editor / (h) history] [i]: "
+    ).strip().lower() or "i"
+    if mode == "t":
+        interval_str = input("Poll interval seconds [2.0]: ").strip() or "2.0"
+        from scadaver.vendors.phoenix.tui import run_monitor
+        run_monitor(ip, interval=float(interval_str))
+        return
+    elif mode == "e":
+        from scadaver.vendors.phoenix.tui import run_editor
+        run_editor(ip)
+        return
+    elif mode == "h":
+        from scadaver.vendors.phoenix.tui import run_history
+        run_history(ip)
+        return
+    action = "info" if mode in ("", "i") else mode
     model = input("Model (ilc150/ilc390) [ilc150]: ").strip().lower() or "ilc150"
-    action = input("Action (cold/warm/hot/stop/info) [info]: ").strip().lower() or "info"
     from scadaver.vendors.phoenix.control import (
         control_ilc150,
         control_ilc390,
         get_device_info,
     )
     if action == "info":
-        info = get_device_info(ip)
-        print(f"Device info: {info}")
+        with _con.status(f"[cyan]Querying {ip}\u2026"):
+            info = get_device_info(ip)
+        _con.print(f"  Device info: {info}")
     elif model == "ilc150":
-        ok = control_ilc150(ip, action)
-        print(f"ILC 150 {action}: {'OK' if ok else 'Failed'}")
+        with _con.status(f"[cyan]Sending ILC 150 {action.upper()}\u2026"):
+            ok = control_ilc150(ip, action)
+        _con.print(f"  ILC 150 {action}: [green]OK[/green]" if ok else f"  ILC 150 {action}: [red]Failed[/red]")
     else:
-        ok = control_ilc390(ip, action)
-        print(f"ILC 390 {action}: {'OK' if ok else 'Failed'}")
+        with _con.status(f"[cyan]Sending ILC 390 {action.upper()}\u2026"):
+            ok = control_ilc390(ip, action)
+        _con.print(f"  ILC 390 {action}: [green]OK[/green]" if ok else f"  ILC 390 {action}: [red]Failed[/red]")
 
 
 def _ctrl_siemens_io() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
+    _con = _Con()
+    mode = input(
+        "Action: [(r) read] | [(o) outputs] | [(m) merkers] | [(t) live monitor] | [(e) editor] | [(h) history] [r]: "
+    ).strip().lower() or "r"
+    if mode == "t":
+        interval_str = input("Poll interval seconds [1.0]: ").strip() or "1.0"
+        from scadaver.vendors.siemens.tui import run_io_monitor
+        run_io_monitor(ip, interval=float(interval_str))
+        return
+    elif mode == "e":
+        from scadaver.vendors.siemens.tui import run_io_editor
+        run_io_editor(ip)
+        return
+    elif mode == "h":
+        from scadaver.vendors.siemens.tui import run_history
+        run_history(ip)
+        return
     from scadaver.vendors.siemens.control import read_io, write_merkers, write_outputs
-    action = input("Read (r) or Write outputs (o) or Write merkers (m)? [r]: ").strip().lower() or "r"
-    if action == "o":
+    if mode == "o":
         bits = input("Binary outputs [00000000]: ").strip() or "00000000"
-        ok = write_outputs(ip, bits)
-        print(f"Outputs: {'written' if ok else 'failed'}")
-    elif action == "m":
+        with _con.status("[cyan]Writing outputs\u2026"):
+            ok = write_outputs(ip, bits)
+        _con.print("  Outputs: [green]written[/green]" if ok else "  Outputs: [red]failed[/red]")
+    elif mode == "m":
         bits = input("Binary merkers [00000000]: ").strip() or "00000000"
         offset = input("Byte offset [0]: ").strip() or "0"
-        ok = write_merkers(ip, bits, int(offset))
-        print(f"Merkers: {'written' if ok else 'failed'}")
-    data = read_io(ip)
+        with _con.status("[cyan]Writing merkers\u2026"):
+            ok = write_merkers(ip, bits, int(offset))
+        _con.print("  Merkers: [green]written[/green]" if ok else "  Merkers: [red]failed[/red]")
+    with _con.status(f"[cyan]Reading I/O from {ip}\u2026"):
+        data = read_io(ip)
     for area in ("inputs", "outputs", "merkers"):
         bits_dict = data.get(area)
         if bits_dict is None:
-            print(f"  {area}: error")
+            _con.print(f"  [red]{area}: error[/red]")
             continue
-        print(f"  {area}:")
+        _con.print(f"  [cyan]{area}:[/cyan]")
         for k in sorted(bits_dict, key=lambda x: (int(x.split(".")[0]), int(x.split(".")[1]))):
-            print(f"    {k}: {bits_dict[k]}")
+            val = bits_dict[k]
+            style = "green" if val else "dim"
+            _con.print(f"    {k}: [{style}]{val}[/{style}]")
 
 
 def _ctrl_siemens_cpu() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.siemens.control import cpu_state, flip_cpu
-    print(f"CPU state: {cpu_state(ip)}")
-    flip = input("Toggle CPU state? [y/N]: ").strip().lower()
-    if flip == "y":
-        ok = flip_cpu(ip)
-        print(f"Flip: {'success' if ok else 'failed'}")
-        print(f"New state: {cpu_state(ip)}")
+    from scadaver.vendors.siemens.tui import run_cpu_panel
+    run_cpu_panel(ip)
 
 
 def _ctrl_beckhoff() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.beckhoff.scan import get_state, reboot_device, set_twincat_state, shutdown_device
-    print(f"Current state: {get_state(ip)}")
-    action = input("Action (run/config/stop/reset/reboot/shutdown/none) [none]: ").strip().lower() or "none"
-    if action == "reboot":
-        reboot_device(ip)
-    elif action == "shutdown":
-        shutdown_device(ip)
-    elif action in ("run", "config", "stop", "reset"):
-        set_twincat_state(ip, action)
-    else:
-        return
+    from scadaver.vendors.beckhoff.tui import run_control
+    run_control(ip)
 
 
 def _ctrl_rockwell() -> None:
@@ -390,93 +444,85 @@ def _expl_ewon() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.ewon.exploit import exploit
-    exploit(ip)
+    from scadaver.vendors.ewon.tui import run_credential_extract
+    run_credential_extract(ip)
 
 
 def _expl_schneider_flash() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.schneider.flash_led import flash_led
-    flash_led(ip)
-    print("Flash LED command sent.")
+    from scadaver.vendors.schneider.tui import run_flash_led
+    run_flash_led(ip)
 
 
 def _expl_schneider_hijack() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.schneider.session_hijack import (
-        control_plc,
-        get_device_info,
-        get_session_cookie,
-    )
-    cookie = get_session_cookie(ip)
-    if cookie is None:
-        print("Failed to get session cookie.")
-        return
-    print(f"Session cookie: {cookie}")
-    action = input("Action (info/run/stop/init) [info]: ").strip().lower() or "info"
-    if action == "info":
-        info = get_device_info(ip, cookie)
-        print(f"Device info: {info}")
-    else:
-        result = control_plc(ip, cookie, action)
-        print(f"Result: {result}")
+    from scadaver.vendors.schneider.tui import run_session_panel
+    run_session_panel(ip)
 
 
 def _expl_phoenix_pass() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
+    from rich.table import Table
     from scadaver.vendors.phoenix.webvisit import retrieve_passwords
-    passwords = retrieve_passwords(ip)
-    if passwords:
-        for user, pwd in passwords:
-            print(f"  {user}: {pwd}")
-    else:
-        print("No passwords retrieved.")
+    _con = _Con()
+    with _con.status(f"[cyan]Retrieving passwords from {ip}\u2026"):
+        passwords = retrieve_passwords(ip)
+    if not passwords:
+        _con.print("[yellow]No passwords retrieved.[/yellow]")
+        return
+    table = Table(title="WebVisit Credentials", header_style="bold red")
+    table.add_column("User Level", style="white")
+    table.add_column("Password / Hash", style="red bold")
+    table.add_column("Type", style="dim")
+    for entry in passwords:
+        table.add_row(
+            str(entry.get("user_level", "?")),
+            entry.get("password", entry.get("hash", "?")),
+            entry.get("type", ""),
+        )
+    _con.print(table)
 
 
 def _expl_phoenix_tags() -> None:
     ip = _ask_ip()
     if not ip:
         return
-    from scadaver.vendors.phoenix.webvisit import get_tags, read_tag_values, write_tag_value
-    tags = get_tags(ip)
-    if not tags:
-        print("No tags found.")
-        return
-    print(f"Found {len(tags)} tags")
-    action = input("Read (r) or Write (w)? [r]: ").strip().lower() or "r"
-    if action == "r":
-        values = read_tag_values(ip, tags)
-        for name, val in values.items():
-            print(f"  {name}: {val}")
-    else:
-        idx = input("Tag index to write: ").strip()
-        val = input("Value: ").strip()
-        write_tag_value(ip, int(idx), val)
-        print("Tag write sent.")
+    # Delegate to the full interactive TUI editor for a richer experience
+    from scadaver.vendors.phoenix.tui import run_editor
+    run_editor(ip)
 
 
 def _expl_beckhoff_reboot() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
     from scadaver.vendors.beckhoff.webcontrol import reboot
-    reboot(ip)
+    _con = _Con()
+    with _con.status(f"[cyan]Sending reboot to {ip}\u2026"):
+        reboot(ip)
+    _con.print("[green]Reboot command sent.[/green]")
 
 
 def _expl_beckhoff_user() -> None:
     ip = _ask_ip()
     if not ip:
         return
+    from rich.console import Console as _Con
+    _con = _Con()
     user = input("Username [scadaver_admin]: ").strip() or "scadaver_admin"
     pwd = input("Password [Sc4d4v3r!]: ").strip() or "Sc4d4v3r!"
     from scadaver.vendors.beckhoff.webcontrol import add_user
-    add_user(ip, username=user, password=pwd)
+    with _con.status(f"[cyan]Adding user '{user}' on {ip}\u2026"):
+        add_user(ip, username=user, password=pwd)
+    _con.print(f"[green]User '{user}' creation command sent.[/green]")
 
 
 def _expl_beckhoff_route() -> None:

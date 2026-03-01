@@ -1,4 +1,4 @@
-﻿"""Rockwell Allen-Bradley Logix PLC driver wrapper.
+"""Rockwell Allen-Bradley Logix PLC driver wrapper.
 
 Wraps pycomm3 LogixDriver for tag discovery, read/write, and monitoring.
 

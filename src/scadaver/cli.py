@@ -272,26 +272,12 @@ def control_beckhoff_tc(
     shutdown: bool,
 ) -> None:
     """Control Beckhoff TwinCAT state, reboot or shutdown."""
-    from scadaver.vendors.beckhoff.scan import (
-        get_state,
-        reboot_device,
-        set_twincat_state,
-        shutdown_device,
-    )
-    if reboot:
-        reboot_device(target)
-        click.echo("Reboot command sent.")
-        return
-    if shutdown:
-        shutdown_device(target)
-        click.echo("Shutdown command sent.")
-        return
-    if state:
-        set_twincat_state(target, state)
-        click.echo(f"State change to '{state}' sent.")
+    from scadaver.vendors.beckhoff.tui import run_control, run_device_panel
+    if not reboot and not shutdown and state is None:
+        # info-only — show device panel
+        run_device_panel(target)
     else:
-        s = get_state(target)
-        click.echo(f"Current state: {s}")
+        run_control(target)
 
 
 # ===================================================================
@@ -523,5 +509,104 @@ def rockwell_history(target: str, limit: int) -> None:
     run_history(target, limit=limit)
 
 
+
+# ===================================================================
+# siemens group
+# ===================================================================
+
+@main.group()
+def siemens() -> None:
+    """Interact with Siemens S7 PLCs over S7Comm (port 102)."""
+
+
+@siemens.command("io-monitor")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-i", "--interval", default=1.0, type=float, help="Poll interval in seconds")
+@click.option("-p", "--port", default=102, type=int, help="S7Comm port (default 102)")
+def siemens_io_monitor(target: str, interval: float, port: int) -> None:
+    """Live TUI monitor for Siemens S7 inputs, outputs, and merkers."""
+    from scadaver.vendors.siemens.tui import run_io_monitor
+    run_io_monitor(target, port=port, interval=interval)
+
+
+@siemens.command("io-edit")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-p", "--port", default=102, type=int, help="S7Comm port (default 102)")
+def siemens_io_edit(target: str, port: int) -> None:
+    """Interactive TUI editor for Siemens S7 outputs and merkers."""
+    from scadaver.vendors.siemens.tui import run_io_editor
+    run_io_editor(target, port=port)
+
+
+@siemens.command("cpu")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-p", "--port", default=102, type=int, help="S7Comm port (default 102)")
+def siemens_cpu(target: str, port: int) -> None:
+    """Display and optionally toggle the Siemens S7 CPU state."""
+    from scadaver.vendors.siemens.tui import run_cpu_panel
+    run_cpu_panel(target, port=port)
+
+
+@siemens.command("history")
+@click.option("-t", "--target", required=True, help="PLC IP address")
+@click.option("-n", "--limit", default=30, type=int, help="Number of entries to show")
+def siemens_history(target: str, limit: int) -> None:
+    """Show recent I/O change history for a Siemens S7 PLC."""
+    from scadaver.vendors.siemens.tui import run_history
+    run_history(target, limit=limit)
+
+
+# ===================================================================
+# phoenix group
+# ===================================================================
+
+@main.group()
+def phoenix() -> None:
+    """Interact with Phoenix Contact WebVisit HMI tag values (CVE-2016-8380)."""
+
+
+@phoenix.command("tags")
+@click.option("-t", "--target", required=True, help="HMI IP address")
+@click.option("--refresh", is_flag=True, default=False, help="Re-discover tags from HMI")
+def phoenix_tags(target: str, refresh: bool) -> None:
+    """List all tags discovered from a Phoenix WebVisit HMI."""
+    from scadaver.vendors.phoenix.tui import PhoenixPLC
+    plc = PhoenixPLC(target)
+    try:
+        tags = plc.discover_tags() if refresh else plc.load_tags()
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+    for tag in tags:
+        click.echo(tag)
+    click.echo(f"\n{len(tags)} tag(s) total.")
+
+
+@phoenix.command("monitor")
+@click.option("-t", "--target", required=True, help="HMI IP address")
+@click.option("-i", "--interval", default=2.0, type=float, help="Poll interval in seconds")
+def phoenix_monitor(target: str, interval: float) -> None:
+    """Live TUI monitor showing all WebVisit tags with change highlighting."""
+    from scadaver.vendors.phoenix.tui import run_monitor
+    run_monitor(target, interval=interval)
+
+
+@phoenix.command("edit")
+@click.option("-t", "--target", required=True, help="HMI IP address")
+def phoenix_edit(target: str) -> None:
+    """Interactive TUI tag editor — select by number, stage writes, commit."""
+    from scadaver.vendors.phoenix.tui import run_editor
+    run_editor(target)
+
+
+@phoenix.command("history")
+@click.option("-t", "--target", required=True, help="HMI IP address")
+@click.option("-n", "--limit", default=30, type=int, help="Number of entries to show")
+def phoenix_history(target: str, limit: int) -> None:
+    """Show recent tag change history for a Phoenix WebVisit HMI."""
+    from scadaver.vendors.phoenix.tui import run_history
+    run_history(target, limit=limit)
+
+
 if __name__ == "__main__":
     main()
+
