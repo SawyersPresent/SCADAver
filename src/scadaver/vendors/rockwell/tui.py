@@ -44,6 +44,7 @@ def _tag_table(
     changes: list[dict] | None = None,
     scroll: int = 0,
     visible: int | None = None,
+    max_value_width: int | None = None,
 ) -> RichGroup:
     """Build a Rich table from tag values, with optional viewport slicing.
 
@@ -56,6 +57,8 @@ def _tag_table(
         changes: Optional list of change dicts to highlight yellow.
         scroll: First row to display (0-based absolute index).
         visible: Number of rows to show; ``None`` means show all.
+        max_value_width: Truncate value strings to this length.  Only applied
+            when *visible* is set so each table row stays exactly one line tall.
 
     Returns:
         RichGroup containing the table and (optionally) a footer line.
@@ -73,12 +76,14 @@ def _tag_table(
 
     table = Table(header_style="bold cyan", expand=True, highlight=True)
     table.add_column("#", style="dim", width=6)
-    table.add_column("Tag", style="white", no_wrap=True)
-    table.add_column("Value", style="white")
+    table.add_column("Tag", style="white", no_wrap=True, min_width=24, max_width=32)
+    table.add_column("Value", style="white", no_wrap=True)
     table.add_column("Status", width=10)
 
     for abs_idx, (tag, value) in enumerate(items, start=start_idx + 1):
         row_str = str(value)
+        if max_value_width is not None and len(row_str) > max_value_width:
+            row_str = row_str[: max_value_width - 1] + "\u2026"  # …
         if row_str.startswith("ERROR"):
             tag_style = "red"
             status = "[red]ERROR[/red]"
@@ -208,14 +213,17 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
 
     # ── renderable builder ────────────────────────────────────────
     def _renderable() -> Any:
-        term_h = shutil.get_terminal_size().lines
-        visible = max(5, term_h - 6)  # leave room for table borders + footer
+        term = shutil.get_terminal_size()
+        # Each row must stay exactly 1 terminal line: subtract fixed column
+        # widths (#=6, tag≤32, status=10) plus borders/padding (~10 chars).
+        max_val = max(20, term.columns - 62)
+        visible = max(5, term.lines - 4)  # 2 header rows + 1 footer + 1 border
         with _lock:
             vals = dict(_current)
             chgs = list(_changes)
         if not vals:
             return Text(f"  Connecting to {plc_ip}… waiting for first poll", style="dim")
-        return _tag_table(vals, chgs, scroll=_scroll, visible=visible)
+        return _tag_table(vals, chgs, scroll=_scroll, visible=visible, max_value_width=max_val)
 
     t_input = threading.Thread(target=_input_loop, daemon=True)
     t_poll = threading.Thread(target=_poll_loop, daemon=True)
@@ -228,6 +236,7 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
             screen=True,
             auto_refresh=True,
             refresh_per_second=4,
+            vertical_overflow="crop",
         ) as live:
             while not _stop.is_set():
                 live.update(_renderable())
