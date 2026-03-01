@@ -2,7 +2,7 @@
 
 Unified ICS/SCADA security toolkit consolidating 16 vendor scripts into a single installable Python package with a CLI and interactive menu.
 
-Supports: **Beckhoff**, **Siemens**, **Schneider**, **Mitsubishi**, **Phoenix Contact**, **eWON**, **EtherNet/IP**
+Supports: **Beckhoff**, **Siemens**, **Schneider**, **Mitsubishi**, **Phoenix Contact**, **eWON**, **EtherNet/IP**, **Rockwell Allen-Bradley (Logix)**
 
 ---
 
@@ -157,9 +157,42 @@ scadaver exploit beckhoff-user      # Add admin user to Beckhoff web interface
 scadaver exploit beckhoff-route-spoof  # ADS route brute-force via ARP spoofing (Linux)
 ```
 
+### Rockwell Allen-Bradley Logix
+
+Requires a Logix PLC reachable over EtherNet/IP. Tag lists are cached under `data/` (keyed by PLC IP).
+
+```bash
+# Discover and list all tags
+scadaver rockwell tags -t 192.168.1.10
+
+# Re-discover (bypass cache)
+scadaver rockwell tags -t 192.168.1.10 --refresh
+
+# Read all tags
+scadaver rockwell read -t 192.168.1.10
+
+# Read a single tag
+scadaver rockwell read -t 192.168.1.10 Program:MainProgram.MyTag
+
+# Write one or more tags (TAG=value pairs)
+scadaver rockwell write -t 192.168.1.10 Program:MainProgram.Counter=42
+scadaver rockwell write -t 192.168.1.10 TagA=true TagB=3.14
+
+# Live TUI monitor — polls every N seconds, highlights changes yellow
+scadaver rockwell monitor -t 192.168.1.10
+scadaver rockwell monitor -t 192.168.1.10 -i 2.0
+
+# Interactive TUI editor — select tag by number, stage writes, commit with w
+scadaver rockwell edit -t 192.168.1.10
+
+# View change history (last N events)
+scadaver rockwell history -t 192.168.1.10
+scadaver rockwell history -t 192.168.1.10 -n 50
+```
+
 ### Interactive menu
 
-Running `scadaver` with no arguments launches a numbered interactive menu:
+Running `scadaver` with no arguments launches a numbered interactive menu. Rockwell scan and control are included in the respective sub-menus:
 
 ```bash
 scadaver
