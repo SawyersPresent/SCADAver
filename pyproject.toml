@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "icstool"
+version = "1.0.0"
+description = "Unified ICS Red Team Multi-Tool for industrial security assessments"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [{ name = "Photubias", email = "tijl.deneut@howest.be" }]
+keywords = ["ics", "scada", "plc", "security", "red-team", "pentest"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+dependencies = ["click>=8.1"]
+
+[project.optional-dependencies]
+spoof = ["scapy>=2.5"]
+
+[project.scripts]
+icstool = "icstool.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/icstool"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["icstool"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
