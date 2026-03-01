@@ -1,4 +1,4 @@
-# ICSSecurityScripts / scadaver
+# SCADAVER
 
 Unified ICS/SCADA security toolkit consolidating 16 vendor scripts into a single installable Python package with a CLI and interactive menu.
 
