@@ -171,10 +171,14 @@ def _scan_rockwell() -> None:
     if not ip:
         return
     from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
+    from rich.console import Console as _Con
+    _con = _Con()
     plc = RockwellPLC(ip)
-    print("Connecting and discovering tags\u2026")
+    cached = plc._tags_file.exists()
+    _msg = "Loading tag cache\u2026" if cached else "Discovering tags (first run \u2014 may take 30-60 s)\u2026"
     try:
-        tags = plc.discover_tags()
+        with _con.status(f"[cyan]{_msg}"):
+            tags = plc.discover_tags()
     except RockwellError as exc:
         print(f"\n[!] Rockwell error: {exc}")
         return
@@ -316,7 +320,10 @@ def _ctrl_rockwell() -> None:
     plc = RockwellPLC(ip)
     try:
         if idx == 0:
-            values = plc.read_all()
+            from rich.console import Console as _Con
+            _con = _Con()
+            with _con.status("[cyan]Reading all tags\u2026"):
+                values = plc.read_all()
             for t, v in list(values.items())[:40]:
                 print(f"  {t} = {v}")
             if len(values) > 40:

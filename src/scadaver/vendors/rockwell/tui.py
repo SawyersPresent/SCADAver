@@ -12,7 +12,7 @@ from rich.table import Table
 
 from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
 
-console = Console()
+console = Console(stderr=False)
 
 
 # ------------------------------------------------------------------
@@ -83,13 +83,23 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
         interval: Poll interval in seconds.
     """
     plc = RockwellPLC(plc_ip)
-    console.print(f"[cyan]Connecting to {plc_ip}…[/cyan]")
-    try:
-        plc.load_tags()
-    except RockwellError as exc:
-        console.print(f"[red][!] {exc}[/red]")
-        return
-    console.print(f"[green]Loaded {len(plc.tags)} tags. Starting monitor (Ctrl-C to stop).[/green]\n")
+    cached = plc._tags_file.exists()
+    status_msg = (
+        f"[cyan]Loading {plc_ip} tag cache…"
+        if cached
+        else f"[yellow]Discovering tags on {plc_ip} (first run — may take 30-60 s)…"
+    )
+    with console.status(status_msg):
+        try:
+            plc.load_tags()
+        except RockwellError as exc:
+            console.print(f"[red][!] {exc}[/red]")
+            return
+
+    console.print(
+        f"[green]✓ {len(plc.tags)} tags loaded{'from cache' if cached else ''}. "
+        f"Starting monitor (Ctrl-C to stop).[/green]\n"
+    )
 
     layout = Layout()
     try:
@@ -106,66 +116,93 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
 def run_editor(plc_ip: str) -> None:
     """Interactive tag value editor.
 
-    Displays a numbered table of current tag values. The user enters
-    a tag number to select it, types a new value, then ``w`` to write
-    all pending changes to the PLC at once.
+    Holds a single persistent LogixDriver connection open for the whole session
+    to avoid per-refresh TCP + CIP handshake overhead.
+    The user selects a tag by number, types a new value, then presses ``w``
+    to write all staged changes at once.
 
     Args:
         plc_ip: PLC IP address.
     """
+    from pycomm3 import LogixDriver
+    from pycomm3.exceptions import CommError, ResponseError
+
     plc = RockwellPLC(plc_ip)
-    console.print(f"[cyan]Connecting to {plc_ip}\u2026[/cyan]")
-    try:
-        plc.load_tags()
-    except RockwellError as exc:
-        console.print(f"[red][!] {exc}[/red]")
-        return
+    cached = plc._tags_file.exists()
+    status_msg = (
+        f"[cyan]Loading {plc_ip} tag cache…"
+        if cached
+        else f"[yellow]Discovering tags on {plc_ip} (first run — may take 30-60 s)…"
+    )
+    with console.status(status_msg):
+        try:
+            plc.load_tags()
+        except RockwellError as exc:
+            console.print(f"[red][!] {exc}[/red]")
+            return
+
+    console.print(f"[green]✓ {len(plc.tags)} tags loaded. Opening persistent session…[/green]")
     pending: dict[str, Any] = {}
 
-    while True:
-        try:
-            current = plc.read_all()
-        except RockwellError as exc:
-            console.print(f"[red][!] Read failed: {exc}[/red]")
-            return
-        # Show current values merged with pending edits
-        merged = {**current, **pending}
-        console.print(_tag_table(merged))
+    try:
+        with LogixDriver(plc_ip) as driver:
+            console.print(f"[green]✓ Connected. Fetching initial values…[/green]")
+            while True:
+                with console.status("[cyan]Reading tags…"):
+                    try:
+                        current = plc.read_all_open(driver)
+                    except Exception as exc:
+                        raise RockwellError(str(exc)) from exc
 
-        if pending:
-            console.print(f"[yellow]Pending writes ({len(pending)}):[/yellow] {list(pending.keys())}")
+                merged = {**current, **pending}
+                console.print(_tag_table(merged))
 
-        action = Prompt.ask(
-            "[bold]Enter tag # to edit, [w] to write pending, [r] to refresh, [q] to quit[/bold]"
-        )
+                if pending:
+                    console.print(
+                        f"[yellow]Pending writes ({len(pending)}):[/yellow] {list(pending.keys())}"
+                    )
 
-        if action.lower() == "q":
-            break
-        elif action.lower() == "r":
-            pending.clear()
-            continue
-        elif action.lower() == "w":
-            if not pending:
-                console.print("[yellow]Nothing pending.[/yellow]")
-                continue
-            try:
-                results = plc.write_many(pending)
-            except RockwellError as exc:
-                console.print(f"[red][!] Write failed: {exc}[/red]")
-                continue
-            for tag, ok in results.items():
-                status = "[green]OK[/green]" if ok else "[red]FAIL[/red]"
-                console.print(f"  {tag}: {status}")
-            pending.clear()
-        else:
-            try:
-                idx = int(action) - 1
-                tag = list(current.keys())[idx]
-            except (ValueError, IndexError):
-                console.print("[red]Invalid selection.[/red]")
-                continue
-            raw = Prompt.ask(f"New value for [cyan]{tag}[/cyan] (current: {current[tag]})")
-            pending[tag] = _parse_value(raw)
+                action = Prompt.ask(
+                    "[bold]Tag # to edit | [w] write | [r] refresh | [q] quit[/bold]"
+                )
+
+                if action.lower() == "q":
+                    break
+                elif action.lower() == "r":
+                    pending.clear()
+                    continue
+                elif action.lower() == "w":
+                    if not pending:
+                        console.print("[yellow]Nothing pending.[/yellow]")
+                        continue
+                    with console.status("[cyan]Writing tags…"):
+                        try:
+                            write_results: dict[str, bool] = {}
+                            for tag, value in pending.items():
+                                res = driver.write(tag, value)
+                                if isinstance(res, list):
+                                    res = res[0]
+                                write_results[tag] = res.error is None
+                        except (ResponseError, CommError) as exc:
+                            console.print(f"[red][!] Write failed: {exc}[/red]")
+                            continue
+                    for tag, ok in write_results.items():
+                        status = "[green]OK[/green]" if ok else "[red]FAIL[/red]"
+                        console.print(f"  {tag}: {status}")
+                    pending.clear()
+                else:
+                    try:
+                        idx = int(action) - 1
+                        tag = list(current.keys())[idx]
+                    except (ValueError, IndexError):
+                        console.print("[red]Invalid selection.[/red]")
+                        continue
+                    raw = Prompt.ask(
+                        f"New value for [cyan]{tag}[/cyan] (current: {current[tag]})"
+                    )
+                    pending[tag] = _parse_value(raw)
+    except (ResponseError, CommError, RockwellError) as exc:
+        console.print(f"[red][!] Session error: {exc}[/red]")
 
 
 def run_history(plc_ip: str, limit: int = 30) -> None:
