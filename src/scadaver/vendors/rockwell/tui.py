@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import threading
+import time
 from typing import Any
 
-from rich.console import Console
+from rich.console import Console, Group as RichGroup
 from rich.live import Live
 from rich.prompt import Prompt
 from rich.table import Table
+from rich.text import Text
 
 from scadaver.vendors.rockwell.driver import RockwellError, RockwellPLC
 
@@ -34,24 +39,45 @@ def _parse_value(raw: str) -> Any:
         return raw
 
 
-def _tag_table(values: dict[str, Any], changes: list[dict] | None = None) -> Table:
-    """Build a Rich Table from tag values, highlighting changes.
+def _tag_table(
+    values: dict[str, Any],
+    changes: list[dict] | None = None,
+    scroll: int = 0,
+    visible: int | None = None,
+) -> RichGroup:
+    """Build a Rich table from tag values, with optional viewport slicing.
+
+    When *visible* is supplied only *visible* rows starting at *scroll* are
+    rendered and a navigation footer is appended.  When *visible* is ``None``
+    the full table is returned (used by editor and history).
 
     Args:
         values: Current tag values dict.
         changes: Optional list of change dicts to highlight yellow.
+        scroll: First row to display (0-based absolute index).
+        visible: Number of rows to show; ``None`` means show all.
 
     Returns:
-        Configured Rich Table.
+        RichGroup containing the table and (optionally) a footer line.
     """
     changed_tags = {c["tag"] for c in changes} if changes else set()
+    total = len(values)
+
+    if visible is not None:
+        scroll = max(0, min(scroll, max(0, total - visible)))
+        items = list(values.items())[scroll : scroll + visible]
+        start_idx = scroll
+    else:
+        items = list(values.items())
+        start_idx = 0
+
     table = Table(header_style="bold cyan", expand=True, highlight=True)
     table.add_column("#", style="dim", width=6)
     table.add_column("Tag", style="white", no_wrap=True)
     table.add_column("Value", style="white")
     table.add_column("Status", width=10)
 
-    for idx, (tag, value) in enumerate(values.items(), start=1):
+    for abs_idx, (tag, value) in enumerate(items, start=start_idx + 1):
         row_str = str(value)
         if row_str.startswith("ERROR"):
             tag_style = "red"
@@ -62,9 +88,21 @@ def _tag_table(values: dict[str, Any], changes: list[dict] | None = None) -> Tab
         else:
             tag_style = "green"
             status = "[green]OK[/green]"
-        table.add_row(str(idx), f"[{tag_style}]{tag}[/{tag_style}]", row_str, status)
+        table.add_row(str(abs_idx), f"[{tag_style}]{tag}[/{tag_style}]", row_str, status)
 
-    return table
+    renderables: list[Any] = [table]
+    if visible is not None:
+        end = min(scroll + visible, total)
+        renderables.append(
+            Text(
+                f"  rows {scroll + 1}\u2013{end} of {total}  "
+                "\u2502  \u2191\u2193 one row  "
+                "\u2502  PgUp/PgDn page  "
+                "\u2502  [q] quit",
+                style="dim",
+            )
+        )
+    return RichGroup(*renderables)
 
 
 # ------------------------------------------------------------------
@@ -72,10 +110,12 @@ def _tag_table(values: dict[str, Any], changes: list[dict] | None = None) -> Tab
 # ------------------------------------------------------------------
 
 def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
-    """Live-updating monitor view for all PLC tags.
+    """Full-screen live monitor for all PLC tags with keyboard scrolling.
 
-    Polls the PLC at *interval* seconds and refreshes a Rich table in-place.
-    Changed tags are highlighted yellow. Press Ctrl-C to exit.
+    Takes over the terminal (alternate screen buffer) so the display updates
+    in-place without flooding the scroll buffer.  Changed tags are highlighted
+    yellow.  Use arrow keys / PgUp / PgDn to scroll; press ``q`` or Ctrl-C to
+    exit.
 
     Args:
         plc_ip: PLC IP address.
@@ -95,25 +135,112 @@ def run_monitor(plc_ip: str, interval: float = 1.0) -> None:
             console.print(f"[red][!] {exc}[/red]")
             return
 
-    console.print(
-        f"[green]✓ {len(plc.tags)} tags loaded{'from cache' if cached else ''}. "
-        f"Starting monitor (Ctrl-C to stop).[/green]\n"
-    )
+    # ── shared state ──────────────────────────────────────────────
+    _scroll = 0
+    _lock = threading.Lock()
+    _current: dict[str, Any] = {}
+    _changes: list[dict] = []
+    _stop = threading.Event()
+    _error: list[str] = []  # at most one element; list avoids nonlocal assignment
+
+    # ── keyboard input thread ─────────────────────────────────────
+    def _input_loop() -> None:
+        nonlocal _scroll
+        page_size = max(5, shutil.get_terminal_size().lines - 6)
+
+        if os.name == "nt":
+            import msvcrt  # type: ignore[import-untyped]
+            while not _stop.is_set():
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch()
+                    if ch == b"\xe0":
+                        ch2 = msvcrt.getch()
+                        if   ch2 == b"H": _scroll = max(0, _scroll - 1)           # ↑
+                        elif ch2 == b"P": _scroll += 1                             # ↓
+                        elif ch2 == b"I": _scroll = max(0, _scroll - page_size)   # PgUp
+                        elif ch2 == b"Q": _scroll += page_size                    # PgDn
+                    elif ch in (b"q", b"Q"):
+                        _stop.set()
+                time.sleep(0.05)
+        else:
+            import select  # noqa: PLC0415
+            import sys
+            import termios  # type: ignore[import-untyped]
+            import tty      # type: ignore[import-untyped]
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                while not _stop.is_set():
+                    r, _, _ = select.select([sys.stdin], [], [], 0.05)
+                    if not r:
+                        continue
+                    ch = sys.stdin.buffer.read(1)
+                    if ch == b"\x1b":
+                        r2, _, _ = select.select([sys.stdin], [], [], 0.05)
+                        if r2:
+                            ch += sys.stdin.buffer.read(1)
+                            r3, _, _ = select.select([sys.stdin], [], [], 0.05)
+                            if r3:
+                                ch += sys.stdin.buffer.read(1)
+                    if   ch == b"\x1b[A":  _scroll = max(0, _scroll - 1)          # ↑
+                    elif ch == b"\x1b[B":  _scroll += 1                            # ↓
+                    elif ch == b"\x1b[5~": _scroll = max(0, _scroll - page_size)  # PgUp
+                    elif ch == b"\x1b[6~": _scroll += page_size                   # PgDn
+                    elif ch in (b"q", b"Q", b"\x03", b"\x04"):
+                        _stop.set()
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    # ── data poll thread ──────────────────────────────────────────
+    def _poll_loop() -> None:
+        nonlocal _current, _changes
+        try:
+            for vals, chgs in plc.monitor(interval=interval):
+                if _stop.is_set():
+                    break
+                with _lock:
+                    _current = vals
+                    _changes = chgs
+        except RockwellError as exc:
+            _error.append(str(exc))
+            _stop.set()
+
+    # ── renderable builder ────────────────────────────────────────
+    def _renderable() -> Any:
+        term_h = shutil.get_terminal_size().lines
+        visible = max(5, term_h - 6)  # leave room for table borders + footer
+        with _lock:
+            vals = dict(_current)
+            chgs = list(_changes)
+        if not vals:
+            return Text(f"  Connecting to {plc_ip}… waiting for first poll", style="dim")
+        return _tag_table(vals, chgs, scroll=_scroll, visible=visible)
+
+    t_input = threading.Thread(target=_input_loop, daemon=True)
+    t_poll = threading.Thread(target=_poll_loop, daemon=True)
+    t_input.start()
+    t_poll.start()
 
     try:
         with Live(
             console=console,
-            refresh_per_second=2,
-            vertical_overflow="visible",
-            auto_refresh=False,
+            screen=True,
+            auto_refresh=True,
+            refresh_per_second=4,
         ) as live:
-            for current, changes in plc.monitor(interval=interval):
-                live.update(_tag_table(current, changes))
-                live.refresh()
-    except RockwellError as exc:
-        console.print(f"\n[red][!] Connection lost: {exc}[/red]")
+            while not _stop.is_set():
+                live.update(_renderable())
+                time.sleep(0.1)
     except KeyboardInterrupt:
-        console.print("\n[yellow]Monitor stopped.[/yellow]")
+        pass
+    finally:
+        _stop.set()
+
+    if _error:
+        console.print(f"[red][!] Connection lost: {_error[0]}[/red]")
+    else:
+        console.print("[yellow]Monitor stopped.[/yellow]")
 
 
 def run_editor(plc_ip: str) -> None:
