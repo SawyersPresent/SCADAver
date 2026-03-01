@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import socket
 
-from icstool.core.network import NetworkInterface
+from scadaver.core.network import NetworkInterface
 
 DEST_PORT = 27127
 DEFAULT_TIMEOUT = 1

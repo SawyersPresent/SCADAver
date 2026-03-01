@@ -14,9 +14,9 @@ import socket
 import time
 import xml.etree.ElementTree as ET
 
-from icstool.core.bytes import get_netid_as_string, ip_to_hex, reverse_bytes
-from icstool.core.network import NetworkInterface
-from icstool.vendors.beckhoff.ads import (
+from scadaver.core.bytes import get_netid_as_string, ip_to_hex, reverse_bytes
+from scadaver.core.network import NetworkInterface
+from scadaver.vendors.beckhoff.ads import (
     build_local_netid,
     construct_ams_packet,
     parse_ads_response,

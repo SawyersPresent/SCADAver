@@ -1,8 +1,8 @@
-"""ICSTool CLI — click-based subcommand interface.
+"""SCADaver CLI — click-based subcommand interface.
 
-Entry point registered as ``icstool`` console script.
+Entry point registered as ``scadaver`` console script.
 Subcommands are organized by action: ``scan``, ``control``,
-``exploit``. Running bare ``icstool`` launches an interactive menu.
+``exploit``. Running bare ``scadaver`` launches an interactive menu.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import sys
 
 import click
 
-from icstool import __version__
+from scadaver import __version__
 
 
 # ===================================================================
@@ -19,10 +19,10 @@ from icstool import __version__
 # ===================================================================
 
 @click.group(invoke_without_command=True)
-@click.version_option(__version__, prog_name="icstool")
+@click.version_option(__version__, prog_name="scadaver")
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """ICSTool — Unified ICS Red Team Multi-Tool.
+    """SCADaver — Unified ICS Red Team Multi-Tool.
 
     Consolidates scanning, exploitation, and control of industrial
     control systems across Siemens, Beckhoff, Schneider, Mitsubishi,
@@ -32,7 +32,7 @@ def main(ctx: click.Context) -> None:
     interactive menu.
     """
     if ctx.invoked_subcommand is None:
-        from icstool.interactive import interactive_menu
+        from scadaver.interactive import interactive_menu
         interactive_menu()
 
 
@@ -50,7 +50,7 @@ def scan() -> None:
 @click.option("-t", "--timeout", default=5, type=int, help="Timeout in seconds")
 def scan_enip(broadcast: str, timeout: int) -> None:
     """Scan for EtherNet/IP (CIP) devices."""
-    from icstool.vendors.enip.scan import scan as do_scan
+    from scadaver.vendors.enip.scan import scan as do_scan
     devices = do_scan(broadcast_ip=broadcast, timeout=timeout)
     if not devices:
         click.echo("No EtherNet/IP devices found.")
@@ -66,7 +66,7 @@ def scan_enip(broadcast: str, timeout: int) -> None:
 @click.option("-t", "--timeout", default=3, type=int, help="Timeout in seconds")
 def scan_ewon(timeout: int) -> None:
     """Scan for eWON devices (UDP broadcast)."""
-    from icstool.vendors.ewon.scan import scan as do_scan
+    from scadaver.vendors.ewon.scan import scan as do_scan
     devices = do_scan(timeout=timeout)
     if not devices:
         click.echo("No eWON devices found.")
@@ -80,7 +80,7 @@ def scan_ewon(timeout: int) -> None:
 @click.option("-t", "--timeout", default=2, type=int, help="Timeout in seconds")
 def scan_schneider(broadcast: str, timeout: int) -> None:
     """Scan for Schneider Electric devices (UDP 1740)."""
-    from icstool.vendors.schneider.scan import scan as do_scan
+    from scadaver.vendors.schneider.scan import scan as do_scan
     devices = do_scan(broadcast_ip=broadcast, timeout=timeout)
     if not devices:
         click.echo("No Schneider devices found.")
@@ -94,7 +94,7 @@ def scan_schneider(broadcast: str, timeout: int) -> None:
 @click.option("-t", "--timeout", default=3, type=int, help="Timeout in seconds")
 def scan_mitsubishi(broadcast: str, timeout: int) -> None:
     """Scan for Mitsubishi MELSEC devices (UDP 5561)."""
-    from icstool.vendors.mitsubishi.scan import scan as do_scan
+    from scadaver.vendors.mitsubishi.scan import scan as do_scan
     devices = do_scan(broadcast_ip=broadcast, timeout=timeout)
     if not devices:
         click.echo("No Mitsubishi devices found.")
@@ -108,7 +108,7 @@ def scan_mitsubishi(broadcast: str, timeout: int) -> None:
 @click.option("-t", "--timeout", default=2, type=int, help="Timeout in seconds")
 def scan_beckhoff(broadcast: str, timeout: int) -> None:
     """Scan for Beckhoff TwinCAT devices (UDP 48899)."""
-    from icstool.vendors.beckhoff.scan import discover
+    from scadaver.vendors.beckhoff.scan import discover
     devices = discover(broadcast_ip=broadcast, timeout=timeout)
     if not devices:
         click.echo("No Beckhoff devices found.")
@@ -126,12 +126,12 @@ def scan_beckhoff(broadcast: str, timeout: int) -> None:
 def scan_siemens(ip: str | None) -> None:
     """Scan for Siemens devices (Profinet DCP or IP-based)."""
     if ip:
-        from icstool.vendors.siemens.scan import scan_ip
+        from scadaver.vendors.siemens.scan import scan_ip
         dev = scan_ip(ip)
         _print_siemens_device(dev)
     else:
         click.echo("Profinet DCP scan requires pcap and interface selection.")
-        click.echo("Use the interactive menu (icstool) or provide --ip.")
+        click.echo("Use the interactive menu (scadaver) or provide --ip.")
 
 
 def _print_siemens_device(d: dict) -> None:
@@ -169,7 +169,7 @@ def control() -> None:
 )
 def control_mitsubishi(target: str, state: str) -> None:
     """Set Mitsubishi PLC to RUN/STOP/PAUSE."""
-    from icstool.vendors.mitsubishi.control import set_state
+    from scadaver.vendors.mitsubishi.control import set_state
     result = set_state(target, state.upper())
     click.echo(f"Result: {result}")
 
@@ -190,7 +190,7 @@ def control_mitsubishi(target: str, state: str) -> None:
 )
 def control_phoenix(target: str, model: str, action: str) -> None:
     """Control Phoenix Contact PLC (ILC 150/390)."""
-    from icstool.vendors.phoenix.control import (
+    from scadaver.vendors.phoenix.control import (
         control_ilc150,
         control_ilc390,
         get_device_info,
@@ -219,7 +219,7 @@ def control_phoenix(target: str, model: str, action: str) -> None:
 @click.option("-m", "--merkers", default=None, help="Binary merker string,offset (e.g. 01010101,3)")
 def control_siemens_io(target: str, do_read: bool, outputs: str | None, merkers: str | None) -> None:
     """Read/write Siemens S7 inputs, outputs, and merkers."""
-    from icstool.vendors.siemens.control import read_io, write_merkers, write_outputs
+    from scadaver.vendors.siemens.control import read_io, write_merkers, write_outputs
 
     if outputs:
         ok = write_outputs(target, outputs)
@@ -247,7 +247,7 @@ def control_siemens_io(target: str, do_read: bool, outputs: str | None, merkers:
 @click.option("--flip", is_flag=True, help="Toggle CPU state (run↔stop)")
 def control_siemens_cpu(target: str, flip: bool) -> None:
     """Query or toggle Siemens S7 CPU state."""
-    from icstool.vendors.siemens.control import cpu_state, flip_cpu
+    from scadaver.vendors.siemens.control import cpu_state, flip_cpu
     click.echo(f"CPU state: {cpu_state(target)}")
     if flip:
         ok = flip_cpu(target)
@@ -272,7 +272,7 @@ def control_beckhoff_tc(
     shutdown: bool,
 ) -> None:
     """Control Beckhoff TwinCAT state, reboot or shutdown."""
-    from icstool.vendors.beckhoff.scan import (
+    from scadaver.vendors.beckhoff.scan import (
         get_state,
         reboot_device,
         set_twincat_state,
@@ -307,7 +307,7 @@ def exploit() -> None:
 @click.option("-t", "--target", required=True, help="Target eWON IP")
 def exploit_ewon_creds(target: str) -> None:
     """Extract credentials from eWON Flexy (auth bypass)."""
-    from icstool.vendors.ewon.exploit import exploit as do_exploit
+    from scadaver.vendors.ewon.exploit import exploit as do_exploit
     do_exploit(target)
 
 
@@ -315,7 +315,7 @@ def exploit_ewon_creds(target: str) -> None:
 @click.option("-t", "--target", required=True, help="Target Schneider IP")
 def exploit_schneider_flash(target: str) -> None:
     """Flash LED on a Schneider M340 PLC."""
-    from icstool.vendors.schneider.flash_led import flash_led
+    from scadaver.vendors.schneider.flash_led import flash_led
     flash_led(target)
     click.echo("Flash LED command sent.")
 
@@ -330,7 +330,7 @@ def exploit_schneider_flash(target: str) -> None:
 )
 def exploit_schneider_hijack(target: str, action: str) -> None:
     """CVE-2017-6026: Session hijack on Schneider M340."""
-    from icstool.vendors.schneider.session_hijack import (
+    from scadaver.vendors.schneider.session_hijack import (
         control_plc,
         get_device_info,
         get_session_cookie,
@@ -352,7 +352,7 @@ def exploit_schneider_hijack(target: str, action: str) -> None:
 @click.option("-t", "--target", required=True, help="Target Phoenix IP")
 def exploit_phoenix_passwords(target: str) -> None:
     """CVE-2016-8366: Retrieve passwords from Phoenix WebVisit."""
-    from icstool.vendors.phoenix.webvisit import retrieve_passwords
+    from scadaver.vendors.phoenix.webvisit import retrieve_passwords
     passwords = retrieve_passwords(target)
     if passwords:
         for user, pwd in passwords:
@@ -367,7 +367,7 @@ def exploit_phoenix_passwords(target: str) -> None:
 @click.option("--write", "tag_write", default=None, help="tag_index=value to write")
 def exploit_phoenix_tags(target: str, do_read: bool, tag_write: str | None) -> None:
     """CVE-2016-8380: Read/write HMI tag values on Phoenix PLCs."""
-    from icstool.vendors.phoenix.webvisit import (
+    from scadaver.vendors.phoenix.webvisit import (
         get_tags,
         read_tag_values,
         write_tag_value,
@@ -391,7 +391,7 @@ def exploit_phoenix_tags(target: str, do_read: bool, tag_write: str | None) -> N
 @click.option("-t", "--target", required=True, help="Target Beckhoff IP")
 def exploit_beckhoff_reboot(target: str) -> None:
     """Reboot a Beckhoff CX9020 via UPnP/SOAP."""
-    from icstool.vendors.beckhoff.webcontrol import reboot
+    from scadaver.vendors.beckhoff.webcontrol import reboot
     reboot(target)
 
 
@@ -401,7 +401,7 @@ def exploit_beckhoff_reboot(target: str) -> None:
 @click.option("-p", "--password", default="ICSToolPwd1!", help="Password for new user")
 def exploit_beckhoff_user(target: str, username: str, password: str) -> None:
     """Add an admin user to a Beckhoff CX9020 via UPnP/SOAP."""
-    from icstool.vendors.beckhoff.webcontrol import add_user
+    from scadaver.vendors.beckhoff.webcontrol import add_user
     add_user(target, username=username, password=password)
 
 
@@ -410,8 +410,8 @@ def exploit_beckhoff_user(target: str, username: str, password: str) -> None:
 @click.option("-c", "--cidr", default=None, help="CIDR range to scan (e.g. 192.168.1.0/24)")
 def exploit_beckhoff_route_spoof(target: str, cidr: str | None) -> None:
     """Brute-force Beckhoff ADS routes via ARP spoofing (Linux only)."""
-    from icstool.core.network import get_interfaces, select_interface
-    from icstool.vendors.beckhoff.route_spoof import brute_force_routes
+    from scadaver.core.network import get_interfaces, select_interface
+    from scadaver.vendors.beckhoff.route_spoof import brute_force_routes
 
     ifaces = get_interfaces()
     iface = select_interface(ifaces)

@@ -1,7 +1,6 @@
 """Siemens S7Comm protocol helpers for S7-1200/1500 devices.
 
-Ported from SiemensScan.py and S7-1200-Workshop.py by
-Photubias (Tijl Deneut).
+By sawyerspresent.
 
 Provides COTP connection setup, S7Comm read/write for inputs,
 outputs and merkers, CPU state query and toggling, and device

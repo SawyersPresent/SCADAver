@@ -1,6 +1,6 @@
 """Profinet DCP Layer 2 discovery and configuration.
 
-Ported from SiemensScan.py by Photubias (Tijl Deneut).
+By sawyerspresent.
 
 Uses raw Ethernet frames (via pcap) to send PN-DCP Identify
 requests and parse responses. Also supports setting network
@@ -19,7 +19,7 @@ import time
 from binascii import hexlify, unhexlify
 from multiprocessing.pool import ThreadPool
 
-from icstool.core.pcap import pcap_close, pcap_next, pcap_open, pcap_send
+from scadaver.core.pcap import pcap_close, pcap_next, pcap_open, pcap_send
 
 DISCOVER_TIMEOUT = 2
 

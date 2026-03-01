@@ -12,7 +12,7 @@ from __future__ import annotations
 import socket
 import time
 
-from icstool.core.validation import require_ipv4
+from scadaver.core.validation import require_ipv4
 
 INFO_PORT = 1962
 CONTROL_PORT_ILC150 = 41100

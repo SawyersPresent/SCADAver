@@ -1,12 +1,12 @@
 """High-level Siemens PLC control operations.
 
-Wraps :mod:`icstool.vendors.siemens.s7comm` functions with
+Wraps :mod:`scadaver.vendors.siemens.s7comm` functions with
 user-friendly interfaces for the CLI layer.
 """
 
 from __future__ import annotations
 
-from icstool.vendors.siemens.s7comm import (
+from scadaver.vendors.siemens.s7comm import (
     change_cpu_state,
     get_cpu_state,
     read_all_data,

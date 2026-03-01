@@ -15,7 +15,7 @@ import http.client
 import re
 import socket
 
-from icstool.core.validation import require_ipv4
+from scadaver.core.validation import require_ipv4
 
 INDEX_ACTIVE_REBOOT = "1329528576"
 INDEX_INACTIVE_REBOOT = "1330577152"

@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "icstool"
+name = "scadaver"
 version = "1.0.0"
 description = "Unified ICS Red Team Multi-Tool for industrial security assessments"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
-authors = [{ name = "Photubias", email = "tijl.deneut@howest.be" }]
+authors = [{ name = "sawyerspresent" }]
 keywords = ["ics", "scada", "plc", "security", "red-team", "pentest"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -25,10 +25,10 @@ dependencies = ["click>=8.1"]
 spoof = ["scapy>=2.5"]
 
 [project.scripts]
-icstool = "icstool.cli:main"
+scadaver = "scadaver.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/icstool"]
+packages = ["src/scadaver"]
 
 [tool.ruff]
 target-version = "py310"
@@ -40,7 +40,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["icstool"]
+known-first-party = ["scadaver"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

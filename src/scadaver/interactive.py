@@ -1,6 +1,6 @@
-"""Interactive numbered-menu fallback for icstool.
+"""Interactive numbered-menu fallback for scadaver.
 
-Launched when ``icstool`` is invoked without a subcommand.
+Launched when ``scadaver`` is invoked without a subcommand.
 Presents a hierarchical menu for users who prefer guided
 interaction over CLI flags.
 """
@@ -16,18 +16,15 @@ def _clear() -> None:
 
 
 BANNER = r"""
-[*****************************************************************************]
-
-     ██╗ ██████╗███████╗████████╗ ██████╗  ██████╗ ██╗
-     ██║██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔═══██╗██║
-     ██║██║     ███████╗   ██║   ██║   ██║██║   ██║██║
-     ██║██║     ╚════██║   ██║   ██║   ██║██║   ██║██║
-     ██║╚██████╗███████║   ██║   ╚██████╔╝╚██████╔╝███████╗
-     ╚═╝ ╚═════╝╚══════╝   ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝
+  ███████╗ ██████╗ █████╗ ██████╗  █████╗ ██╗   ██╗███████╗██████╗
+  ██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔════╝██╔══██╗
+  ███████╗██║     ███████║██║  ██║███████║██║   ██║█████╗  ██████╔╝
+  ╚════██║██║     ██╔══██║██║  ██║██╔══██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+  ███████║╚██████╗██║  ██║██████╔╝██║  ██║ ╚████╔╝ ███████╗██║  ██║
+  ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 
                Unified ICS Red Team Multi-Tool v1.0
-           Based on ICSSecurityScripts by Photubias (Tijl Deneut)
-
+                       by sawyerspresent
 [*****************************************************************************]
 """
 
@@ -89,50 +86,43 @@ def _menu_scan() -> None:
 
 
 def _scan_enip() -> None:
+    from icstool.core.network import get_interfaces, select_interface
     from icstool.vendors.enip.scan import scan
-    bc = input("Broadcast IP [255.255.255.255]: ").strip() or "255.255.255.255"
-    devices = scan(broadcast_ip=bc)
-    print(f"\nFound {len(devices)} EtherNet/IP device(s)")
-    for d in devices:
-        print(f"  {d.get('ip', '?')}:{d.get('port', '?')} — {d.get('product_name', '?')}")
+    iface = select_interface(get_interfaces())
+    devices = scan(interface=iface)
+    print(f"\nFound {len(devices)} EtherNet/IP device(s).")
 
 
 def _scan_ewon() -> None:
+    from icstool.core.network import get_interfaces, select_interface
     from icstool.vendors.ewon.scan import scan
-    devices = scan()
-    print(f"\nFound {len(devices)} eWON device(s)")
-    for d in devices:
-        print(f"  {d.get('ip', '?')} — {d.get('device_name', '?')}")
+    iface = select_interface(get_interfaces())
+    devices = scan(interface=iface)
+    print(f"\nFound {len(devices)} eWON device(s).")
 
 
 def _scan_schneider() -> None:
+    from icstool.core.network import get_interfaces, select_interface
     from icstool.vendors.schneider.scan import scan
-    bc = input("Broadcast IP [255.255.255.255]: ").strip() or "255.255.255.255"
-    devices = scan(broadcast_ip=bc)
-    print(f"\nFound {len(devices)} Schneider device(s)")
-    for d in devices:
-        print(f"  {d.get('ip', '?')} — {d.get('name', '?')}")
+    iface = select_interface(get_interfaces())
+    devices = scan(interface=iface)
+    print(f"\nFound {len(devices)} Schneider device(s).")
 
 
 def _scan_mitsubishi() -> None:
+    from icstool.core.network import get_interfaces, select_interface
     from icstool.vendors.mitsubishi.scan import scan
-    bc = input("Broadcast IP [255.255.255.255]: ").strip() or "255.255.255.255"
-    devices = scan(broadcast_ip=bc)
-    print(f"\nFound {len(devices)} Mitsubishi device(s)")
-    for d in devices:
-        print(f"  {d.get('ip', '?')} — {d.get('model', '?')}")
+    iface = select_interface(get_interfaces())
+    devices = scan(interface=iface)
+    print(f"\nFound {len(devices)} Mitsubishi device(s).")
 
 
 def _scan_beckhoff() -> None:
+    from icstool.core.network import get_interfaces, select_interface
     from icstool.vendors.beckhoff.scan import discover
-    bc = input("Broadcast IP [255.255.255.255]: ").strip() or "255.255.255.255"
-    devices = discover(broadcast_ip=bc)
-    print(f"\nFound {len(devices)} Beckhoff device(s)")
-    for d in devices:
-        print(
-            f"  {d.get('ip', '?')} — {d.get('hostname', '?')} "
-            f"(TC {d.get('twincat_version', '?')})"
-        )
+    iface = select_interface(get_interfaces())
+    devices = discover(interface=iface)
+    print(f"\nFound {len(devices)} Beckhoff device(s).")
 
 
 def _scan_siemens_ip() -> None:

@@ -1,4 +1,4 @@
-# ICSSecurityScripts / icstool
+# ICSSecurityScripts / scadaver
 
 Unified ICS/SCADA security toolkit consolidating 16 vendor scripts into a single installable Python package with a CLI and interactive menu.
 
@@ -14,18 +14,18 @@ Supports: **Beckhoff**, **Siemens**, **Schneider**, **Mitsubishi**, **Phoenix Co
 
 ```bash
 sudo pip install .
-# icstool is now at /usr/local/bin/icstool
-icstool --help
+# scadaver is now at /usr/local/bin/scadaver
+scadaver --help
 ```
 
 **User install (no root) — most common on Linux:**
 
 ```bash
 pip install --user .
-# Script lands at ~/.local/bin/icstool
+# Script lands at ~/.local/bin/scadaver
 # If not found, add it to PATH:
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
-icstool --help
+scadaver --help
 ```
 
 **With [uv](https://github.com/astral-sh/uv) (faster, recommended):**
@@ -34,7 +34,7 @@ icstool --help
 uv venv
 source .venv/bin/activate
 uv pip install .
-icstool --help
+scadaver --help
 ```
 
 Or without activating:
@@ -42,13 +42,13 @@ Or without activating:
 ```bash
 uv venv
 uv pip install .
-uv run icstool --help
+uv run scadaver --help
 ```
 
 **No install — run as a module directly:**
 
 ```bash
-python -m icstool --help
+python -m scadaver --help
 ```
 
 **With ARP/route-spoofing support (Linux only, requires scapy + root):**
@@ -57,6 +57,41 @@ python -m icstool --help
 sudo pip install ".[spoof]"
 # or
 uv pip install ".[spoof]"
+```
+
+---
+
+### pipx (isolated install, no venv management)
+
+[pipx](https://pipx.pypa.io/) installs CLI tools into their own isolated environments and puts the entry point on your PATH automatically — no venv activation needed.
+
+```bash
+# Install pipx if you don't have it
+pip install --user pipx
+pipx ensurepath   # adds ~/.local/bin to PATH (re-open shell after)
+
+# Install scadaver from the repo directory
+pipx install .
+
+scadaver --help
+```
+
+With ARP/route-spoofing support:
+
+```bash
+pipx install ".[spoof]"
+```
+
+To upgrade after pulling changes:
+
+```bash
+pipx reinstall scadaver
+```
+
+To remove:
+
+```bash
+pipx uninstall scadaver
 ```
 
 > **Note (Windows):** Siemens Profinet DCP discovery requires [Npcap](https://npcap.com/) installed in **WinPcap-compatible mode**.
@@ -68,14 +103,14 @@ uv pip install ".[spoof]"
 Build the image:
 
 ```bash
-docker build -t icstool .
+docker build -t scadaver .
 ```
 
 Run any command:
 
 ```bash
-docker run --rm --network host icstool scan enip
-docker run --rm --network host icstool --help
+docker run --rm --network host scadaver scan enip
+docker run --rm --network host scadaver --help
 ```
 
 > `--network host` is required so the container can send/receive broadcast packets on your local network interfaces. On Linux this works natively. On Windows/macOS, use a Linux VM or WSL2.
@@ -85,49 +120,49 @@ docker run --rm --network host icstool --help
 ## Usage
 
 ```
-icstool [OPTIONS] COMMAND [ARGS]...
+scadaver [OPTIONS] COMMAND [ARGS]...
 ```
 
 ### Scan
 
 ```bash
-icstool scan enip          # EtherNet/IP UDP broadcast discovery
-icstool scan ewon          # eWON device discovery
-icstool scan schneider     # Schneider PLC broadcast scan
-icstool scan mitsubishi    # Mitsubishi GX Works broadcast scan
-icstool scan beckhoff      # Beckhoff ADS UDP discovery
-icstool scan siemens       # Siemens Profinet DCP + S7Comm scan
+scadaver scan enip          # EtherNet/IP UDP broadcast discovery
+scadaver scan ewon          # eWON device discovery
+scadaver scan schneider     # Schneider PLC broadcast scan
+scadaver scan mitsubishi    # Mitsubishi GX Works broadcast scan
+scadaver scan beckhoff      # Beckhoff ADS UDP discovery
+scadaver scan siemens       # Siemens Profinet DCP + S7Comm scan
 ```
 
 ### Control
 
 ```bash
-icstool control mitsubishi   # RUN/STOP/PAUSE Mitsubishi PLC
-icstool control phoenix      # Read/revert Phoenix Contact CPU state
-icstool control siemens-io   # Read I/O and write outputs on Siemens S7
-icstool control siemens-cpu  # Change Siemens CPU run state
-icstool control beckhoff-tc  # Set Beckhoff TwinCAT run state
+scadaver control mitsubishi   # RUN/STOP/PAUSE Mitsubishi PLC
+scadaver control phoenix      # Read/revert Phoenix Contact CPU state
+scadaver control siemens-io   # Read I/O and write outputs on Siemens S7
+scadaver control siemens-cpu  # Change Siemens CPU run state
+scadaver control beckhoff-tc  # Set Beckhoff TwinCAT run state
 ```
 
 ### Exploit
 
 ```bash
-icstool exploit ewon-creds         # Retrieve eWON credentials (CVE auth bypass)
-icstool exploit schneider-flash    # Flash Schneider PLC LED
-icstool exploit schneider-hijack   # Session hijack CVE-2017-6026
-icstool exploit phoenix-passwords  # Retrieve WebVisit passwords (CVE-2016-8366)
-icstool exploit phoenix-tags       # Get/set HMI tag values (CVE-2016-8380)
-icstool exploit beckhoff-reboot    # Reboot Beckhoff PLC via UPnP/SOAP
-icstool exploit beckhoff-user      # Add admin user to Beckhoff web interface
-icstool exploit beckhoff-route-spoof  # ADS route brute-force via ARP spoofing (Linux)
+scadaver exploit ewon-creds         # Retrieve eWON credentials (CVE auth bypass)
+scadaver exploit schneider-flash    # Flash Schneider PLC LED
+scadaver exploit schneider-hijack   # Session hijack CVE-2017-6026
+scadaver exploit phoenix-passwords  # Retrieve WebVisit passwords (CVE-2016-8366)
+scadaver exploit phoenix-tags       # Get/set HMI tag values (CVE-2016-8380)
+scadaver exploit beckhoff-reboot    # Reboot Beckhoff PLC via UPnP/SOAP
+scadaver exploit beckhoff-user      # Add admin user to Beckhoff web interface
+scadaver exploit beckhoff-route-spoof  # ADS route brute-force via ARP spoofing (Linux)
 ```
 
 ### Interactive menu
 
-Running `icstool` with no arguments launches a numbered interactive menu:
+Running `scadaver` with no arguments launches a numbered interactive menu:
 
 ```bash
-icstool
+scadaver
 ```
 
 ---
@@ -140,4 +175,4 @@ The original standalone scripts are preserved in [`legacy/`](legacy/) for refere
 
 ## Credits
 
-Original scripts by [Tijl Deneut](https://github.com/tijldeneut/ICSSecurityScripts)
+By [sawyerspresent](https://github.com/tijldeneut/ICSSecurityScripts).

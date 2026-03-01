@@ -1,6 +1,6 @@
 """Beckhoff ADS route brute-forcer via ARP spoofing (Linux only, scapy).
 
-Ported from BeckhoffRouteSpoofer.py by Photubias (Tijl Deneut).
+By sawyerspresent.
 
 This module brute-forces known ADS routes using ARP cache poisoning,
 kernel RST suppression (iptables), and spoofed TCP connections to
@@ -20,7 +20,7 @@ import time
 from binascii import hexlify, unhexlify
 from typing import TYPE_CHECKING
 
-from icstool.core.bytes import (
+from scadaver.core.bytes import (
     get_netid_as_string,
     ip_to_hex,
     reverse_bytes,
@@ -53,7 +53,7 @@ def _load_scapy():
     except ImportError:
         raise SystemExit(
             "scapy is required for route spoofing. "
-            "Install with: pip install icstool[spoof]"
+            "Install with: pip install scadaver[spoof]"
         )
 
 

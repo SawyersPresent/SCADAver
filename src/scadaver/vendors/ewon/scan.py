@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import socket
 
-from icstool.core.network import NetworkInterface
+from scadaver.core.network import NetworkInterface
 
 DISCOVERY_PORT = 1507
 RESPONSE_PORT = 1506

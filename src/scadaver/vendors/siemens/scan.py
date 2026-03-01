@@ -1,6 +1,6 @@
 """Siemens device discovery combining Profinet DCP and S7Comm.
 
-Ported from SiemensScan.py by Photubias (Tijl Deneut).
+By sawyerspresent.
 
 Provides Layer 2 (Profinet DCP) discovery via pcap and Layer 3
 (S7Comm/COTP) device information retrieval.
@@ -8,8 +8,8 @@ Provides Layer 2 (Profinet DCP) discovery via pcap and Layer 3
 
 from __future__ import annotations
 
-from icstool.vendors.siemens.profinet import discover as dcp_discover
-from icstool.vendors.siemens.s7comm import (
+from scadaver.vendors.siemens.profinet import discover as dcp_discover
+from scadaver.vendors.siemens.s7comm import (
     get_cpu_state,
     get_device_info_cotp,
     tcp_scan,

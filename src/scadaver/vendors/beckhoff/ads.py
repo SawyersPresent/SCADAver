@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import random
 
-from icstool.core.bytes import ip_to_hex, reverse_bytes
+from scadaver.core.bytes import ip_to_hex, reverse_bytes
 
 DEFAULT_REMOTE_PORT = 10000
 DEFAULT_LOCAL_PORT = 31337

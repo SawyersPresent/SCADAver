@@ -5,14 +5,14 @@ Sends a List Identity broadcast on UDP port 44818 and parses responses.
 
 from __future__ import annotations
 
-from icstool.core.bytes import convert_to_int, invert_hex_string
-from icstool.core.network import (
+from scadaver.core.bytes import convert_to_int, invert_hex_string
+from scadaver.core.network import (
     NetworkInterface,
     collect_responses_with_addr,
     create_udp_broadcast_socket,
     send_udp,
 )
-from icstool.vendors.enip.enums import DEVICE_TYPE, VENDOR_ID
+from scadaver.vendors.enip.enums import DEVICE_TYPE, VENDOR_ID
 
 DISCOVERY_PACKET = "630000000000000000000000000000000000000000000000"
 DEST_PORT = 44818

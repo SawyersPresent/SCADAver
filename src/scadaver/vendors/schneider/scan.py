@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import socket
 
-from icstool.core.network import NetworkInterface, calculate_broadcast
+from scadaver.core.network import NetworkInterface, calculate_broadcast
 
 DEST_PORT = 1740
 SOURCE_PORT = 1740
