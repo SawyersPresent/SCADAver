@@ -208,4 +208,5 @@ The original standalone scripts are preserved in [`legacy/`](legacy/) for refere
 
 ## Credits
 
-By [sawyerspresent](https://github.com/tijldeneut/ICSSecurityScripts).
+By [sawyerspresent](https://github.com/tijldeneut/ICSSecurityScripts). 
+This repostiroy was initially a fork of the [ICSSecurityScript](https://github.com/tijldeneut/ICSSecurityScripts) so credits to tijldeneut for that repo 
